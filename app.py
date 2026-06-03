@@ -1,5 +1,5 @@
 """
-Pepper — Análise e Sugestão de Compras  v1.8.4
+Pepper — Análise e Sugestão de Compras  v1.8.6
 Chilli Beans · Óticas
 Rodado com: streamlit run app.py
 """
@@ -16,7 +16,18 @@ for _d in _pl.Path(__file__).parent.rglob('__pycache__'):
                 pass
 del _pl
 
+# ── Cloud init: DEVE ser o primeiro import de dados ───────────────────────────
+# No Streamlit Cloud o repo é read-only. Este bloco redireciona PEPPER_DATA_DIR
+# para /tmp/pepper-data e baixa os arquivos JSON do Supabase ANTES de qualquer
+# módulo tentar ler ou escrever em data/.
+try:
+    from modules.data_dir import init_cloud_data_dir as _init_cloud
+    _init_cloud()
+except Exception:
+    pass
+
 import base64
+import json
 import math
 import os
 import sys
@@ -225,7 +236,7 @@ if st.session_state["auth_user"] is None:
     with st.form("login_form"):
         _login_in = st.text_input("Login", placeholder="seu.login")
         _senha_in = st.text_input("Senha", type="password", placeholder="••••••")
-        _submit   = st.form_submit_button("Entrar →", type="primary", use_container_width=True)
+        _submit   = st.form_submit_button("Entrar →", type="primary", width="stretch")
     st.markdown(
         f'<p style="text-align:center;font-size:.75rem;color:#9E8E7E;margin-top:12px;">'
         f'Primeiro acesso? Use a senha padrão <b>{_sp}</b></p>'
@@ -265,7 +276,7 @@ if _auth_user.get("primeiro_acesso"):
     with st.form("change_pw_form"):
         _np1 = st.text_input("Nova senha (mín. 6 caracteres)", type="password")
         _np2 = st.text_input("Confirmar nova senha", type="password")
-        _ok  = st.form_submit_button("💾 Salvar e entrar", type="primary", use_container_width=True)
+        _ok  = st.form_submit_button("💾 Salvar e entrar", type="primary", width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
     if _ok:
@@ -452,7 +463,7 @@ with st.sidebar:
         f'</div>',
         unsafe_allow_html=True,
     )
-    if st.button("Sair", key="btn_logout", use_container_width=True):
+    if st.button("Sair", key="btn_logout", width="stretch"):
         st.session_state["auth_user"] = None
         st.rerun()
 
@@ -480,7 +491,7 @@ with st.sidebar:
         _nav.append("⚙️  Configurações")
     page = st.radio("Navegação", _nav, label_visibility="collapsed")
     st.divider()
-    st.caption("v1.8.4 · Pepper · Chilli Beans TI")
+    st.caption("v1.8.6 · Pepper · Chilli Beans TI")
     # ── Widget de atualizações ────────────────────────────────────────────────
     try:
         import json as _json
@@ -3994,7 +4005,7 @@ def page_settings():
                     "Ativo":     "✅" if u.get("ativo", True) else "❌",
                     "1º Acesso": "⚠️ Pendente" if u.get("primeiro_acesso") else "✓",
                 })
-            st.dataframe(pd.DataFrame(_u_rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(_u_rows), hide_index=True, width="stretch")
 
         # Formulário de criação — só mostra perfis que o usuário logado pode criar
         _criáveis = perfis_criáveis_por(_au_cfg)
@@ -4026,7 +4037,7 @@ def page_settings():
                     type="password",
                     placeholder=f"Padrão: {senha_padrao()}",
                 )
-                _sub_u = st.form_submit_button("✅ Criar usuário", type="primary", use_container_width=True)
+                _sub_u = st.form_submit_button("✅ Criar usuário", type="primary", width="stretch")
 
             if _sub_u:
                 if not _nu_login or not _nu_nome:
@@ -4386,7 +4397,7 @@ def _page_retorno_contato(df_ret, thresholds, client_map, selected_camp, ddd, fi
             for _, row in df_janela.iterrows():
                 codigo    = str(row["codigo_cliente"])
                 info      = client_map.get(codigo, {})
-                nome      = info.get("nome", f"Cliente #{codigo}")
+                nome      = (info.get("nome") or "").strip() or f"Cliente #{codigo}"
                 fone      = info.get("fone", "") or ""
                 ultima    = pd.to_datetime(row["ultima_compra"]).strftime("%d/%m/%Y")
                 dias      = int(row["dias"])
@@ -5529,7 +5540,7 @@ def page_bom_dia():
             except Exception: pass
         if _m == _hoje.month and (_dia_n is None or _dia_n == _hoje.day):
             _fone = _info.get("fone","") or ""
-            _nome = _info.get("nome", f"Cliente #{_cod}")
+            _nome = (_info.get("nome") or "").strip() or f"Cliente #{_cod}"
             _msg  = f"Oi {_nome.split()[0]}, hoje é seu dia especial! 🎉 Passe na Chilli Beans e ganhe um mimo de aniversário."
             _wa   = make_whatsapp_link(_fone, _msg, _ddd) if _fone else ""
             _is_hoje = _dia_n == _hoje.day if _dia_n else False
@@ -5555,7 +5566,7 @@ def page_bom_dia():
             if _dr < 0 or _dr > 30: continue
             _cod  = str(_rrow.get("codigo_cliente",""))
             _info = _cmap.get(_cod, {})
-            _nome = _info.get("nome", f"Cliente #{_cod}")
+            _nome = (_info.get("nome") or "").strip() or f"Cliente #{_cod}"
             _fone = _info.get("fone","") or ""
             _cat_lbl = CAT_NAMES.get(_cat, _cat)
             _msg  = (f"Oi {_nome.split()[0]}! Sua {_cat_lbl.lower()} está chegando no prazo de troca. "
@@ -5583,7 +5594,7 @@ def page_bom_dia():
             _cod  = str(_rrow.get("codigo_cliente",""))
             if f"j1_{_cod}" in [a["id"] for a in _acoes]: continue
             _info = _cmap.get(_cod, {})
-            _nome = _info.get("nome", f"Cliente #{_cod}")
+            _nome = (_info.get("nome") or "").strip() or f"Cliente #{_cod}"
             _fone = _info.get("fone","") or ""
             _msg  = (f"Oi {_nome.split()[0]}! Já faz um ano desde sua última visita à Chilli Beans. "
                      f"Como está sua saúde visual?")
@@ -5801,7 +5812,7 @@ def page_cobertura():
         })
     if _uf_rows:
         st.dataframe(
-            pd.DataFrame(_uf_rows), hide_index=True, use_container_width=True,
+            pd.DataFrame(_uf_rows), hide_index=True, width="stretch",
             column_config={
                 "":        st.column_config.TextColumn("", width="small"),
                 "WA%":     st.column_config.TextColumn("📱 WA%"),
@@ -5817,7 +5828,7 @@ def page_cobertura():
         st.caption("Praças ordenadas por número de clientes que ganhariam acesso ao WhatsApp após enriquecimento de telefone.")
         _roi_rows = [{"UF": r["uf"], "Clientes sem fone": r["batch_sem_fone"],
                       "% da praça": f"{r['pct_sem_fone']:.0f}%"} for r in _rep["roi_ranking"][:15]]
-        st.dataframe(pd.DataFrame(_roi_rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(_roi_rows), hide_index=True, width="stretch")
 
     # ── Lista de "mortos" (sem canal) para captador sanear ───────────────────
     _mortos = mortos_list(_cmap, default_ddd=_ddd)
@@ -5831,7 +5842,7 @@ def page_cobertura():
                  "UF": m.get("uf","—"), "Cód.": m.get("codigo","")}
                 for m in _mortos
             ])
-            st.dataframe(_m_df, hide_index=True, use_container_width=True)
+            st.dataframe(_m_df, hide_index=True, width="stretch")
             st.download_button(
                 "📥 Exportar lista de mortos",
                 data=to_excel({"Sem Canal": _m_df}),

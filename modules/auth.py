@@ -21,8 +21,13 @@ import re
 from datetime import date, datetime
 from typing import Optional
 
-ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_PATH = os.path.join(ROOT, "data", "users.json")
+def _get_path() -> str:
+    try:
+        from modules.data_dir import data_path
+        return data_path("users.json")
+    except Exception:
+        _r = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(_r, "data", "users.json")
 
 # Hierarquia: nome do perfil → nível numérico
 NIVEL = {
@@ -65,19 +70,24 @@ def senha_padrao() -> str:
 
 
 def _load() -> list:
-    if not os.path.exists(_PATH):
+    path = _get_path()
+    if not os.path.exists(path):
         return []
     try:
-        with open(_PATH, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return []
 
 
 def _save(users: list) -> None:
-    os.makedirs(os.path.dirname(_PATH), exist_ok=True)
-    with open(_PATH, "w", encoding="utf-8") as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
+    path = _get_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(users, f, ensure_ascii=False, indent=2)
+    except (PermissionError, OSError):
+        pass   # Cloud: read-only filesystem — dados já estão no Supabase
 
 
 def ensure_default_admin() -> bool:
