@@ -1,0 +1,51 @@
+# ── Pepper · .gitignore ──────────────────────────────────────────────────────
+# Criado pelo builder em 29/05/2026. Protege segredos e dados caso o projeto
+# venha a ser versionado em Git. NÃO substitui a proteção necessária contra a
+# sincronização do OneDrive (ver lista de tarefas / relatório do builder).
+
+# ── Segredos e dados sensíveis ──
+data/config.json          # token Microvix + certificado SEFAZ A1 + senha (NUNCA versionar)
+data/*.db                 # base SQLite (pepper.db): histórico de contatos, sugestões
+*.pfx
+*.p12
+*.key
+.env
+.streamlit/secrets.toml
+
+# ── Dados de cliente / catálogo (PII e base de negócio) ──
+data/client_map.json
+data/client_meta.json
+data/produto_map.json
+data/produto_map_meta.json
+data/campaigns.json
+data/update_log.json
+data/familias.json
+data/loja_config.json
+data/qualidade_alertas.json
+data/prescricoes.json
+data/funil.json
+data/email_queue.json
+data/email_queue_history.json
+data/email_config.json
+data/pos_venda_log.json
+data/lgpd_optout.json
+data/users.json
+data/fornecedor_lentes.json
+
+# ── Streamlit Cloud secrets (NUNCA versionar) ──
+.streamlit/secrets.toml
+
+# ── Ambiente Python ──
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Backups gerados pelo builder ──
+the builder/Backup*/
+
+# ── Logs ──
+*.log
+streamlit_err.log
+streamlit_run.log
+streamlit_log.txt

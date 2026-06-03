@@ -1,0 +1,35 @@
+# -- Pepper -- Versoes fixas (Opcao A) -----------------------------------------
+# Testadas e validadas em 29/05/2026 -- Python 3.14.5, Windows 11.
+# Para atualizar: testar localmente, validar app.py, e editar as versoes abaixo.
+# Instalar: pip install -r requirements.txt
+#
+# 29/05/2026 (builder): sincronizado com o ambiente em uso (pip freeze do venv).
+#   cryptography 41.0.0 -> 48.0.0  (41.x tinha CVEs; evita downgrade em instalacoes novas)
+#   lxml          4.9.0 -> 6.1.1
+#   openpyxl      3.1.0 -> 3.1.5
+#   xlrd          2.0.1 -> 2.0.2
+# ------------------------------------------------------------------------------
+
+streamlit==1.58.0
+pandas==3.0.3
+numpy==2.4.6
+plotly==6.7.0
+requests==2.34.2
+urllib3==2.7.0
+
+# PDF (carta de solicitacao Microvix, exports futuros)
+reportlab==4.5.1
+pypdf==6.12.2
+
+# Excel / parsing
+openpyxl==3.1.5
+xlrd==2.0.2
+
+# Seguranca / crypto (NF-e SEFAZ)
+cryptography==48.0.0
+
+# XML / HTML parsing
+lxml==6.1.1
+
+# Cloud storage (Supabase - usado quando modo_cloud=True no Streamlit Cloud)
+supabase>=2.0.0

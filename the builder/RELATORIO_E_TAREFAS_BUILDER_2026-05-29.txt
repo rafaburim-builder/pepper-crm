@@ -1,0 +1,2271 @@
+================================================================================
+  PEPPER · CHILLI BEANS ÓTICAS — RELATÓRIO DO BUILDER (CRM)
+  Iterações 1 e 2 — Diagnóstico, fundação segura, correções e backlog
+================================================================================
+  Gerado por: tarefa agendada "builder-app" (execução autônoma)
+  Data/hora.: 29/05/2026 — Iteração 1 às 22:04 · Iteração 2 (P0+backlog) até 23:05
+  Versão app: v1.7.7
+  Janela.....: 22h–04h  ->  execução AUTORIZADA
+  Backup.....: "the builder\Backup 22 29 05 2026"  (34 arquivos, 9,22 MB — VERIFICADO)
+  Arquivo ÚNICO acumulativo (você pediu para não espalhar em vários arquivos).
+================================================================================
+
+COMO LER ESTE ARQUIVO
+  1. Resumo executivo
+  2. O que foi feito (seguro, já aplicado e testado) — inclui [F] P0 e [G] backlog
+  3. Os 4 feedbacks (vendedor leigo · designer · executivo comercial · programador/segurança)
+  4. Pesquisa de CRMs de referência (RD Station, Salesforce, Dynamics, Linx Microvix, óticas)
+  5. Roadmap consolidado (visual · estrutural · segurança · eficiência)
+  6. >>> LISTA DE TAREFAS (status atualizado) <<<  ← [x] feito · [~] futuro · [ ] decisão sua
+  8. Esboços prontos para construir (login/papéis · captador/funil · tela Hoje)
+  9. Notas para as próximas execuções (aprendizado/evolução)
+
+--------------------------------------------------------------------------------
+1) RESUMO EXECUTIVO
+--------------------------------------------------------------------------------
+O Pepper já é um produto sério e acima da média para uma operação de óticas:
+tem RFM, janelas de reativação de saúde visual (J1–J5), geração de link de
+WhatsApp, aniversariantes, pirâmide de preços, integração Linx Microvix e SEFAZ
+NF-e. A base está MUITO boa.
+
+Para virar "o CRM mais disruptivo", faltam três camadas que todos os CRMs
+consolidados têm e que a dinâmica de óticas (captador externo → vendedor →
+gerente) exige:
+  • FUNIL/PIPELINE de oportunidades (hoje não existe);
+  • MÓDULO DO CAPTADOR EXTERNO (hoje não existe — é a maior lacuna);
+  • PERFIS DE ACESSO + GAMIFICAÇÃO por vendedor/gerente (hoje qualquer pessoa
+    que abre o app vê tudo, sem login e sem ranking).
+
+E há um risco de segurança que precisa de ação humana já: segredos sensíveis
+(token Microvix, CERTIFICADO DIGITAL A1 e a SENHA do certificado) estão em
+TEXTO PURO dentro de uma pasta sincronizada pelo OneDrive. Isso é o item P0.
+
+Decisão de engenharia desta execução: como o app está EM PRODUÇÃO (modo demo
+desligado, loja real conectada) e ninguém está presente para corrigir uma
+quebra de madrugada, apliquei apenas mudanças de baixíssimo risco e 100%
+testáveis. Tudo que é estrutural/arriscado/depende de decisão sua foi para a
+LISTA DE TAREFAS (seção 6), com instruções.
+
+--------------------------------------------------------------------------------
+2) O QUE FOI FEITO NESTA EXECUÇÃO (seguro — já aplicado e validado)
+--------------------------------------------------------------------------------
+[A] BACKUP completo do app criado em "the builder\Backup 22 29 05 2026"
+    (excluídos venv/__pycache__/a própria pasta the builder). Conferido:
+    app.py idêntico byte a byte, data/ com pepper.db e todos os JSON.
+
+[B] requirements.txt SINCRONIZADO com o ambiente que está rodando hoje.
+    Havia DESVIO perigoso: o arquivo fixava versões ANTIGAS e o venv já roda
+    versões novas. Uma instalação nova (Configurar.bat) rebaixaria bibliotecas
+    para versões com vulnerabilidades conhecidas. Corrigido:
+        cryptography  41.0.0 -> 48.0.0   (41.x tem CVEs; usado p/ assinar NF-e)
+        lxml           4.9.0 -> 6.1.1
+        openpyxl       3.1.0 -> 3.1.5
+        xlrd           2.0.1 -> 2.0.2
+    (Só afeta instalações futuras; NÃO altera o app em execução.)
+
+[C] .gitignore criado na raiz do projeto, protegendo segredos, PII de clientes
+    e backups caso o projeto venha a ser versionado em Git no futuro.
+    OBS: .gitignore NÃO protege contra o OneDrive — ver tarefa P0.
+
+[D] Auditoria completa de código (app.py + 7 módulos + 2 APIs) e esta análise.
+
+[E] Verificação de saúde: todos os 12 arquivos .py compilam sem erro; libs
+    críticas importam (cryptography 48, lxml 6.1, streamlit 1.57, pandas 3.0).
+
+[F] >>> P0 EXECUTADO (autorizado por você às 22:2x) — SEGREDOS TIRADOS DO ONEDRIVE.
+    Implementei um "cofre" local fora do OneDrive e migrei os segredos:
+      • Novo módulo modules\secure_store.py (cofre em %LOCALAPPDATA%\Pepper\).
+      • config.py alterado de forma DEFENSIVA: lê/grava token, certificado A1
+        (.pfx) e senha do certificado no cofre local; o config.json sincronizado
+        passa a guardar esses campos VAZIOS. Se o cofre falhar, volta ao
+        comportamento antigo (nunca quebra, nunca perde o certificado).
+      • Testado offline (26 asserções) ANTES de tocar nos arquivos reais.
+      • Migração real executada e verificada:
+          - data\config.json: token/cert/senha agora com tamanho 0 (limpos).
+          - cópia do backup também limpa (não deixa segredo no OneDrive).
+          - cofre %LOCALAPPDATA%\Pepper\secrets.json com os valores intactos
+            (cert de 12.072 chars idêntico ao original — sem corrupção).
+          - app lê tudo da memória/cofre: is_configured=True, modo_demo=False.
+      • Backup de recuperação do config original salvo FORA do OneDrive em
+        %LOCALAPPDATA%\Pepper\config.pre-migration.*.json
+      • O app que está rodando agora (porta 8501, HTTP 200) NÃO foi afetado —
+        ele usa os segredos em memória. O código seguro entra em vigor no
+        próximo reinício normal (Iniciar.bat). >>> Ver tarefa 0.3.
+    NOTA honesta: tentei endurecer a permissão (icacls) do cofre e isso bloqueou
+    a leitura; reverti para a ACL padrão do %LOCALAPPDATA% (usuário/SYSTEM/Admin),
+    que já é adequada por estar fora do OneDrive. Lição registrada.
+
+[G] >>> LOTE DE BACKLOG (você autorizou "rodar todas as tarefas") — feito e testado:
+    • SEGURANÇA — Microvix de http:// -> https:// (token deixa de trafegar em
+      claro). Testado: conexão OK por HTTPS. verify=True não passou (o endpoint
+      não valida na CA padrão — SSLError); deixei TODO no código p/ pinar o cert
+      quando formos online. (api\microvix.py + config.py + base_url no config.json)
+    • SEGURANÇA — _auto_update.py agora é NOTIFY-ONLY (não instala pacote sozinho
+      às 02h; só registra updates para revisão). Fecha risco de supply chain.
+    • OPERAÇÃO — retenção de backups: manter os 14 mais recentes.
+    • OPERAÇÃO — dependências validadas (pip check limpo).
+    • 0.4 — recuperação movida para C:\Pepper Safe (fora do OneDrive).
+
+NENHUMA mudança foi feita em: app.py (a interface em si), lógica de negócio,
+banco de dados, módulo product_map.py (bloqueado por governança).
+   >>> Por quê não mexi no app.py? Ele está RODANDO e o Streamlit re-executa o
+   arquivo a cada clique; um erro ali derrubaria a tela na hora. As mudanças que
+   fiz (config.py, microvix.py, _auto_update.py) só entram em vigor no próximo
+   reinício — não tocam a sessão aberta. As FUNÇÕES novas (login, funil, captador,
+   tela Hoje) precisam da sua definição de produto/UX e serão construídas em
+   fatias testáveis (ver seções 6 e 8).
+Mudanças de código nesta execução: config.py + modules\secure_store.py (novo) +
+api\microvix.py + _auto_update.py + requirements.txt + .gitignore.
+Tudo testado, dormente até o reinício e reversível pelo backup.
+
+--------------------------------------------------------------------------------
+3) OS QUATRO FEEDBACKS
+--------------------------------------------------------------------------------
+
+........................................................................
+3.1  VENDEDOR DE ÓTICA LEIGO  (quero aprender a vender e bater minhas metas)
+........................................................................
+O QUE EU AMEI
+  • O WhatsApp pronto: clico e já sai a mensagem certa pro cliente. Isso é ouro.
+  • As "janelas" J1–J5 me dizem quem está sumido há tempo — nunca sei de cabeça.
+  • Os segredinhos com emoji (🏆 Campeões, 💎 Fiéis, ⚠️ Em Risco) eu entendo
+    rápido, sem precisar saber estatística.
+  • A lista de aniversariantes é um motivo fácil pra puxar conversa.
+
+ONDE EU TRAVEI
+  • Eu abro o app e cai numa tela "Análise de Contexto" cheia de gráfico. Eu não
+    sei por onde começar. Cadê a tela "O QUE EU FAÇO HOJE"?
+  • Tem aba dentro de aba dentro de aba. Me perco. Palavras como "RFM",
+    "faixa_ordem", "threshold" eu não sei o que são.
+  • Eu contato o cliente, mas não tenho onde marcar o RESULTADO: ele respondeu?
+    veio à loja? comprou? Sem isso eu não sei se valeu a pena.
+  • Não tem nada me ENSINANDO a vender. O objetivo era melhorar meus resultados —
+    eu queria dicas: "esse cliente é Premium, ofereça lente antirreflexo";
+    "faz 2 anos, fale de saúde visual, não de preço".
+  • Não vejo minha meta nem quanto já fiz. Sem isso não me motivo.
+  • No celular (eu uso muito o telefone na loja) fica apertado e difícil.
+
+O QUE EU QUERIA
+  • Uma tela "MEU DIA": aniversariantes de hoje, quem reativar, minha meta x
+    realizado, e 1 dica de venda por cliente. Simples, em 1 toque, no celular.
+
+........................................................................
+3.2  DESIGNER RENOMADO (BR)  (marca, hierarquia visual, usabilidade)
+........................................................................
+PONTOS FORTES
+  • Identidade de marca consistente e bonita: laranja/vermelho Chilli, tipografia
+    Poppins, logo da pimenta em SVG, pills de status. Tem personalidade.
+  • Uso correto de cor para segmentos e categorias; métricas legíveis.
+
+PROBLEMAS DE DESIGN (do mais grave ao menor)
+  • ARQUITETURA DE NAVEGAÇÃO: tabs aninhadas em excesso (ex.: Relatórios = 6 abas;
+    NF-e = +4 sub-abas). Isso esconde função e gera carga cognitiva. CRMs maduros
+    usam navegação lateral + 1 nível de abas, no máximo.
+  • SEM "HOME" ORIENTADA À AÇÃO: a primeira tela é analítica, não acionável.
+    Falta um dashboard inicial que responda "o que fazer agora".
+  • DESCOBERTA QUEBRADA: "Campanhas Ativas" (o coração do CRM) só aparece no menu
+    SE já existir base de clientes importada. Um usuário novo nunca descobre o CRM.
+  • ESTADOS VAZIOS E ONBOARDING: faltam telas de "primeiro uso" guiando o passo a
+    passo (importar clientes → buscar histórico → primeira campanha).
+  • MOBILE: layout "wide" do Streamlit não é pensado para celular, mas o captador
+    e o vendedor usam telefone. Hoje é desconfortável no mobile.
+  • ACESSIBILIDADE: segmentos dependem só de cor (+emoji ajuda); contraste de
+    texto sobre o laranja precisa de verificação WCAG AA. Faltam rótulos/aria.
+  • CONSISTÊNCIA: emojis fazem o papel de ícones; um sistema de ícones único
+    (ex.: Lucide/Phosphor) dá acabamento mais "produto" e menos "planilha".
+
+DIREÇÃO
+  • Menos é mais: 1 "Hoje" + 5 seções claras na lateral; no máx. 1 nível de abas.
+  • Criar um Design System mínimo (tokens de cor/spacing/tipografia, componentes
+    de card/tabela/botão) — base para escalar sem virar colcha de retalhos.
+
+........................................................................
+3.3  EXECUTIVO COMERCIAL & MKT  (40 anos; melhor Diretor Comercial do Brasil)
+........................................................................
+LEITURA GERAL
+  Vocês construíram um ótimo motor de RETENÇÃO (as janelas de saúde visual são,
+  comercialmente, uma máquina de receita recorrente — é o ativo mais valioso
+  aqui). Mas um CRM comercial completo gerencia AQUISIÇÃO e PERFORMANCE DE TIME,
+  e isso ainda não existe no Pepper.
+
+LACUNAS COMERCIAIS (priorizadas por impacto em faturamento)
+  1. CAPTADOR EXTERNO SEM SISTEMA. A dinâmica de ótica vive de captador na rua/
+     praça/parcerias. Hoje não há onde cadastrar captador, atribuir o lead que
+     ele trouxe, medir conversão dele e calcular comissão. É a maior lacuna e a
+     de maior retorno: o que não se mede, não se cobra nem se premia.
+  2. SEM FUNIL DE VENDAS. Não há Lead → Contato → Visita → Em atendimento →
+     Orçamento → Ganho/Perdido, com MOTIVO DE PERDA. Sem funil, não há previsão,
+     não há gestão de gargalo, não há coaching baseado em etapa.
+  3. SEM RANKING/META POR VENDEDOR. Os dados de vendedor e metas vêm do Microvix,
+     mas não há painel "vendedor x meta x realizado" nem ranking. Time de vendas
+     se move com placar. (Estudo HBS: treino gamificado +35,8% de vendas.)
+  4. SEM TAXA DE CONVERSÃO. Quantos contatos viram visita? Quantas visitas viram
+     venda? Sem isso, não dá para saber se o problema é tráfego, abordagem ou
+     fechamento.
+  5. SEM CADÊNCIA AUTOMÁTICA. A reativação é manual (clicar cliente a cliente).
+     Deveria ser uma régua automática multicanal (WhatsApp/SMS/e-mail) — D+7
+     pós-venda, NPS em D+30, recall no 11º mês. Isso roda sozinho e traz gente.
+  6. SEM LTV / RECOMPRA / COMISSÃO. Falta valor do cliente no tempo e cálculo de
+     comissão por vendedor/captador.
+
+O QUE EU COBRARIA NO PRÓXIMO TRIMESTRE
+  • Módulo Captador + Funil + Ranking de vendedores (placar diário na loja).
+  • Régua de reativação automática (transformar J1–J5 manual em automático).
+  • Painel do Gerente: loja x loja, vendedor x vendedor, funil e conversão.
+  • Tudo amarrado a META e COMISSÃO — é o que muda comportamento.
+
+........................................................................
+3.4  PROGRAMADOR FINTECH SÊNIOR  (código · CRM · segurança)
+........................................................................
+SEGURANÇA (ordem de gravidade)  [STATUS pós-correções de 29/05 entre colchetes]
+  [P0-CRÍTICO ✔ RESOLVIDO ARQUITETURALMENTE] SEGREDOS EM TEXTO PURO NO ONEDRIVE.
+     >>> Segredos movidos para cofre local fora do OneDrive; config.json limpo.
+     Resta (futuro/online) rotacionar credenciais por loja. Diagnóstico original:
+     data/config.json guardava, sem
+     qualquer cifragem: o token de integração Microvix, o CERTIFICADO DIGITAL A1
+     (.pfx — a identidade jurídica da empresa para assinar documentos fiscais) e
+     a SENHA do certificado. A pasta é sincronizada pelo OneDrive. Quem tiver
+     acesso ao arquivo (ou à conta OneDrive) pode assinar documentos COMO a
+     empresa e ler todo o ERP. A senha do certificado, além disso, é fraca e
+     previsível. AÇÃO HUMANA URGENTE (ver P0 na seção 6). [valores redigidos
+     deste relatório de propósito]
+  [P1-ALTO ✔ HTTPS FEITO / verify pendente] TLS. Migrado para https:// (token já
+     não trafega em claro). verify=True ainda falha (endpoint não valida na CA
+     padrão) — fica para o online, pinando o certificado. (Escape de XML correto.)
+  [P1-ALTO] SEM AUTENTICAÇÃO/AUTORIZAÇÃO NO APP. Não há login nem papéis
+     (vendedor/gerente/captador). Qualquer um em localhost:8501 vê e altera tudo,
+     inclusive credenciais e certificado. Um CRM precisa de perfis de acesso.
+  [P2-MÉDIO ✔ RESOLVIDO] SUPPLY CHAIN. _auto_update.py agora é notify-only (não
+     instala sozinho às 02h). Diagnóstico: antes instalava a versão mais nova do
+     PyPI sem fixar hash — um pacote comprometido entraria sozinho.
+  [P2-MÉDIO ✔ RESOLVIDO] requirements.txt estava desatualizado e rebaixaria a
+     cryptography para versão com CVE em instalações novas. >>> Corrigido.
+  [P2-MÉDIO] PII SEM LGPD. Nomes, telefones, datas de nascimento e histórico de
+     compras são usados para marketing por WhatsApp sem registro de consentimento,
+     sem opt-out e sem política de retenção. Risco legal (LGPD).
+  [P3-BAIXO] pepper.db (SQLite) sem cifragem; sem log de auditoria de ações.
+
+ARQUITETURA / CÓDIGO
+  • app.py com ~4.600 linhas em um único arquivo. Dificulta manutenção, teste e
+    trabalho em equipe. Migrar para Streamlit multipage (pages/) + camadas
+    services/ (regras) e repository/ (acesso a dados/Microvix).
+  • SEM TESTES automatizados. Para um sistema que toca dados fiscais e PII, é
+    obrigatório ter testes de RFM, janelas, normalização de telefone e parsing.
+  • Acoplamento ao Streamlit em toda a regra de negócio; dificulta evoluir para
+    API/serviço headless (necessário p/ automação de cadência e mobile).
+  • Persistência em JSON/arquivo (produto_map.json ~8,7 MB carregado em memória).
+    Para multi-loja, migrar para um banco gerenciado (Postgres/Supabase) com as
+    devidas permissões — JSON em OneDrive não escala nem isola lojas.
+  • PONTOS BONS: módulo product_map com governança explícita (ótimo!), backfill de
+    config/campanhas resiliente, tratamento de erros de rede claro, escape de XML.
+
+--------------------------------------------------------------------------------
+4) PESQUISA — CRMs DE REFERÊNCIA (aplicado à dinâmica de óticas)
+--------------------------------------------------------------------------------
+RD STATION CRM (BR)
+  • Funil padronizado com etapas, responsável, tarefas e MOTIVO DE PERDA.
+  • Qualificação de lead por PERFIL (quem é) + INTERESSE (o que fez) → Lead
+    Scoring. No Pepper, o RFM + janela já são uma base natural para um score de
+    PRIORIDADE da lista de contatos do dia.
+  • Integração Marketing+Vendas para não perder informação entre áreas.
+
+SALESFORCE / MICROSOFT DYNAMICS 365
+  • PERFIS DE ACESSO (Profiles / Security Roles): cada papel vê o seu. É o modelo
+    para separar vendedor/gerente/captador no Pepper.
+  • DASHBOARDS POR PAPEL: o rep vê a própria meta; o gerente vê o time.
+  • GAMIFICAÇÃO (Dynamics Gamification / Spinify): leaderboard em tempo real,
+    premiando também comportamentos de início de funil (contatos, agendamentos),
+    não só venda fechada. Recomendado focar em 3–5 KPIs.
+
+LINX MICROVIX (varejo/óticas — já integrado!)
+  • É o ERP/fonte de verdade de produto, estoque, venda, vendedor e metas. O
+    Pepper deve continuar consumindo o Microvix como sistema-fonte e ser a camada
+    de RELACIONAMENTO e PERFORMANCE em cima dele (não duplicar cadastro).
+
+CRM ÓTICO / RECALL (benchmark do setor)
+  • Recall automático é a atividade de maior retorno em ótica. Sem lembrete
+    sistemático, 30–40% dos clientes NÃO voltam. ROI típico de CRM ~US$8,71 por
+    US$1. Régua recomendada: check-in D+7, NPS D+30, recall no 11º mês, multicanal
+    (SMS/e-mail/WhatsApp). >>> As janelas J1–J5 do Pepper já seguem essa lógica;
+    falta AUTOMATIZAR (hoje é manual).
+
+--------------------------------------------------------------------------------
+5) ROADMAP CONSOLIDADO (visual · estrutural · segurança · eficiência)
+--------------------------------------------------------------------------------
+VISUAL
+  V1. Tela "HOJE" (home acionável): meta x realizado, aniversariantes, fila de
+      reativação priorizada, próximas tarefas. (resolve vendedor + designer)
+  V2. Reduzir aninhamento de abas; navegação lateral por papel; máx. 1 nível.
+  V3. Onboarding/estados vazios guiados; sempre mostrar o CRM no menu.
+  V4. Responsivo/mobile para captador e vendedor.
+  V5. Design System mínimo (tokens + componentes) e revisão de contraste WCAG.
+
+ESTRUTURAL
+  E1. Funil de oportunidades (Lead→Contato→Visita→Atendimento→Orçamento→Ganho/
+      Perdido + motivo de perda).
+  E2. Módulo CAPTADOR externo (cadastro, atribuição de lead, conversão, comissão).
+  E3. Perfis de acesso + login: vendedor / gerente / captador.
+  E4. Ranking/gamificação de vendedores; metas individuais; placar da loja.
+  E5. Painel do Gerente (loja x loja, vendedor x vendedor, funil, conversão).
+  E6. Régua de cadência automática (D+7 / D+30 NPS / recall 11º mês, multicanal).
+  E7. Modularizar app.py (pages/ + services/ + repository/); criar testes.
+
+SEGURANÇA
+  S1. Tirar segredos do config.json em texto puro (P0 — ver seção 6).
+  S2. Microvix em HTTPS + verify=True (com teste cuidadoso).
+  S3. Autenticação + papéis no app; log de auditoria.
+  S4. Consentimento/opt-out LGPD por cliente + política de retenção.
+  S5. Travar supply chain (hash pin / revisão antes de instalar).
+  S6. (feito) requirements.txt sincronizado p/ evitar downgrade vulnerável.
+
+EFICIÊNCIA
+  EF1. Cache de dados pesados (produto_map, histórico 48m) com invalidação clara.
+  EF2. Vetorizar cálculos de RFM/janela (hoje usam .apply linha a linha).
+  EF3. Migrar catálogo grande de JSON para SQLite/parquet.
+  EF4. Retenção de backups (hoje a tarefa cria 1 backup/hora; vai acumular ~2 GB/
+       mês no OneDrive). Definir manter N últimos.
+
+--------------------------------------------------------------------------------
+6) >>> LISTA DE TAREFAS PARA AMANHÃ (intervenção manual) <<<
+--------------------------------------------------------------------------------
+Marque [ ] -> [x] conforme executar. Itens P0/P1 exigem decisão sua e/ou risco
+em produção, por isso NÃO foram aplicados automaticamente.
+
+== P0 — FAZER PRIMEIRO (segurança crítica) ==
+   STATUS: a parte ARQUITETURAL (tirar os segredos do OneDrive) JÁ FOI FEITA pelo
+   builder nesta execução (ver item [F] na seção 2). O que resta abaixo depende de
+   SISTEMAS EXTERNOS (Microvix / Autoridade Certificadora) que eu NÃO acesso — por
+   isso fica para você. Faça mesmo assim: o segredo já circulou em texto puro no
+   OneDrive, então deve ser considerado COMPROMETIDO e rotacionado.
+
+[x] 0.1d FEITO — segredos movidos para cofre local fora do OneDrive; config.json
+         (vivo e backup) limpos; app validado lendo do cofre.
+[x] 0.1e FEITO (parcial) — cofre em %LOCALAPPDATA% (já restrito ao usuário). A
+         tentativa de endurecer via icacls foi revertida (bloqueava leitura); a
+         ACL padrão do LOCALAPPDATA é adequada por estar fora do OneDrive.
+[x] 0.2  FEITO — .gitignore criado protegendo config.json, .pfx, pepper.db e os
+         JSON de clientes. (Continua valendo: NUNCA versionar esses arquivos.)
+
+--- DECISÃO DO GESTOR (29/05/2026): 0.1a/b/c NÃO se aplicam agora ---
+    As credenciais (token + certificado A1) serão de CADA LOJA e configuradas na
+    INSTALAÇÃO de cada unidade — não são abertas para as lojas em massa. O app
+    ainda é LOCAL. A estrutura de segurança forte (rotação, cofre central,
+    verify=True, etc.) entra QUANDO o app for para ONLINE. Portanto:
+[~] 0.1a FUTURO (online): senha forte/rotação do certificado por loja, no deploy.
+[~] 0.1b FUTURO (online): política de reemissão/custódia de certificados.
+[~] 0.1c FUTURO (online): rotação de token por loja, no deploy de cada unidade.
+[x] 0.3  FEITO por você — app reiniciado; código seguro ativo.
+[x] 0.4  FEITO — copiado para C:\Pepper Safe (fora do OneDrive) e removido do
+         %LOCALAPPDATA%. O cofre operacional mantém só o secrets.json.
+
+== P1 — ALTA PRIORIDADE ==
+[x] 1.1  FEITO — Microvix migrado de http:// para https:// (criptografa o token
+         em trânsito). Testado: conecta OK. verify=True ficou PENDENTE porque o
+         endpoint do Microvix não valida na CA padrão (SSLError) — anotado como
+         TODO no api\microvix.py para quando formos online (pinar o certificado).
+[ ] 1.2  (DECISÃO SUA) PERFIS DE ACESSO (vendedor/gerente/captador) + login.
+         Precisa da sua definição: quem são os usuários, como autenticam (senha
+         por loja? por pessoa?), onde guardar. Como o app é LOCAL hoje, a urgência
+         é menor; recomendado antes do online. Eu implemento assim que você
+         definir o modelo. ESBOÇO sugerido na seção 8.
+[ ] 1.3  (DECISÃO SUA) MÓDULO CAPTADOR + FUNIL — maior retorno comercial. Precisa
+         da sua aprovação do escopo (etapas do funil, campos do captador, regra de
+         comissão). ESBOÇO pronto para começar na seção 8. Eu construo em fatias
+         testáveis nas próximas execuções noturnas após seu OK.
+
+== P2 — MÉDIA PRIORIDADE ==
+[ ] 2.1  (DECISÃO SUA) LGPD: consentimento + opt-out por cliente + retenção. Como
+         envolve política e onde colocar o botão de opt-out no fluxo, precisa da
+         sua diretriz. Tecnicamente simples — implemento após sua definição.
+[x] 2.2  FEITO — _auto_update.py agora é NOTIFY-ONLY: detecta e registra updates,
+         mas NÃO instala sozinho (fecha o risco de supply chain). Testado.
+[x] 2.3  FEITO — política de retenção de backups aplicada: manter os 14 mais
+         recentes (prune automático a cada execução). Hoje há 1 backup.
+[x] 2.4  FEITO — dependências validadas (pip check: "No broken requirements").
+         requirements.txt já reflete o ambiente em uso; instalação nova fica OK.
+
+== P3 — EVOLUÇÃO (eu implemento em próximas execuções; algumas precisam de UX) ==
+[ ] 3.1  Tela "HOJE" (home acionável) para o vendedor — depende de leve definição
+         de UX (o que aparece primeiro). Posso entregar um v1 e iterar.
+[ ] 3.2  Ranking/gamificação de vendedores + metas individuais.
+[ ] 3.3  Régua de cadência automática (D+7 / NPS D+30 / recall 11º mês).
+         OBS: envio automático de WhatsApp exige API oficial (Cloud API) — os
+         links wa.me atuais são manuais. Decisão de canal/custos é sua.
+[ ] 3.4  Painel do Gerente (loja x loja, vendedor x vendedor, conversão).
+[~] 3.5  PARCIAL FEITO (Iteração 3) — suíte de testes automatizados criada em
+         tests\ (unittest da stdlib, ZERO instalação): 43 testes cobrindo RFM
+         (scores R/F/M, segmentos e ordem das regras, score_rfm integrado),
+         normalização de telefone + link WhatsApp + template de mensagem, e
+         faixas de preço (price_pyramid). Todos PASSAM (43/43). Rode com o novo
+         "Rodar_Testes.bat" (ou: venv\Scripts\python.exe -m unittest discover -s
+         tests -v). FALTA: modularizar app.py em pages/services/repository (é
+         estrutural/arriscado — fica para fatia futura) e cobrir janelas J1-J5
+         (a lógica está dentro do app.py; será testável após a modularização).
+[ ] 3.6  Dicas de venda contextuais por segmento/faixa (coaching ao vendedor).
+
+--------------------------------------------------------------------------------
+8) ESBOÇOS PRONTOS PARA CONSTRUIR (aguardando sua decisão de produto/UX)
+--------------------------------------------------------------------------------
+8.1 LOGIN + PERFIS (vendedor / gerente / captador)  [tarefa 1.2]
+  • Tabela users(id, nome, papel, senha_hash, loja, ativo) no pepper.db; hash
+    pbkdf2 (passlib/werkzeug). Tela de login antes do router; guarda st.session_
+    state["user"]; nav e páginas variam por papel:
+      vendedor : Hoje, Campanhas (sua carteira), Marketing(ler), seu placar.
+      gerente  : tudo + Configurações + Painel do Gerente + metas/ranking.
+      captador : Hoje (leads dele) + funil (cadastrar/mover seus leads).
+  • DECISÕES SUAS: senha por pessoa ou por loja? quem cadastra usuários? Enquanto
+    local pode ser 1 senha por papel; no online, por pessoa + 2FA.
+
+8.2 MÓDULO CAPTADOR + FUNIL (maior retorno comercial)  [tarefa 1.3]
+  • Tabelas (pepper.db):
+      captadores(id, nome, contato, ativo, comissao_pct)
+      leads(id, nome, telefone, origem, captador_id, vendedor_id, etapa,
+            valor_estimado, motivo_perda, criado_em, atualizado_em)
+      lead_eventos(id, lead_id, tipo, obs, data)   -- timeline do lead
+  • Etapas (padrão RD Station/Salesforce): Novo -> Contato -> Visita agendada ->
+    Em atendimento -> Orçamento -> Ganho / Perdido (com MOTIVO DE PERDA).
+  • Telas: "Funil" (lista/kanban por etapa) + "Captadores" (cadastro + desempenho:
+    leads trazidos, conversão, comissão estimada). Ao Ganhar, casa com a venda do
+    Microvix (telefone/nome) p/ medir conversão e comissão real.
+  • DECISÕES SUAS: etapas exatas, regra de comissão (% sobre venda? valor fixo no
+    lead ganho?), quem pode mover o lead.
+
+8.3 TELA "HOJE" + GAMIFICAÇÃO (motor diário do vendedor)  [tarefas 3.1/3.2]
+  • "Hoje": meta x realizado (Microvix), aniversariantes, fila de reativação
+    priorizada (RFM + janela), leads do dia — 1 clique para o WhatsApp.
+  • Placar: ranking por realizado E por comportamento (contatos, agendamentos) —
+    premiar início de funil, não só venda fechada (estudo HBS: +35,8%).
+
+--------------------------------------------------------------------------------
+9) NOTAS PARA AS PRÓXIMAS EXECUÇÕES (aprendizado / evolução)
+--------------------------------------------------------------------------------
+  • Princípio: app EM PRODUÇÃO e fiscal — "primeiro, não quebrar". O app fica
+    ABERTO/rodando; o Streamlit re-executa app.py a cada clique, então mudanças na
+    interface só entram com teste e, de preferência, com o app reiniciado.
+  • Contexto do gestor (29/05): app é LOCAL; credenciais são por loja, na
+    instalação; segurança forte (rotação, verify=True, cofre central) é para
+    QUANDO for ONLINE. Itens 0.1a/b/c ficam para essa fase.
+  • Memória persistente do builder atualizada (visão do app, P0 resolvido, lições).
+  • product_map.py é BLOQUEADO por governança — não alterar sem autorização do TI.
+  • Próximas iterações (após você decidir 1.2/1.3/2.1/UX): construo login+papéis,
+    Captador+Funil e a tela "Hoje" em fatias testáveis. É o maior salto de valor.
+  • Sempre: validar janela 22h–04h -> backup (manter 14) -> agir -> registrar aqui.
+
+--------------------------------------------------------------------------------
+ITERAÇÃO 3 (29/05/2026 23:08–23:1x) — REDE DE SEGURANÇA: TESTES AUTOMATIZADOS
+--------------------------------------------------------------------------------
+CONTEXTO: execução horária autônoma (janela 22h–04h OK, agora 23h08). Backup
+"the builder\Backup 23 29 05 2026" criado e VERIFICADO (37 arquivos; hash do
+app.py idêntico ao original; modules/api/data presentes).
+
+PRINCÍPIO MANTIDO: app EM PRODUÇÃO e fiscal -> "primeiro, não quebrar". Como
+ninguém está presente, escolhi a melhoria de MAIOR valor com RISCO ZERO e que
+NÃO depende de decisão sua: criar a suíte de testes que o feedback do programador
+fintech apontou como obrigatória ("sistema que toca dados fiscais e PII SEM
+testes"). É 100% aditiva (só cria a pasta tests\), não importa nada no app.py em
+execução e usa apenas a biblioteca padrão (unittest) — sem pip install, fechando
+qualquer risco de supply chain (coerente com o auto-update notify-only).
+
+O QUE FOI FEITO (já aplicado e validado):
+  • tests\__init__.py, tests\test_rfm.py, tests\test_marketing.py,
+    tests\test_price_pyramid.py — 43 testes, TODOS PASSANDO (0,30 s).
+      - RFM: tabelas de score R/F/M nas bordas exatas das faixas; atribuição de
+        segmento e a ORDEM das regras (Campeão antes de Fiéis); score_rfm de
+        ponta a ponta (recência em dias, percentis de M, enriquecimento por
+        client_map com fallback "Cliente #X", ordenação por rfm_score).
+      - Marketing: normalize_phone (vazio/lixo, 8/9/10/11 dígitos, prefixo 55,
+        símbolos, DDD padrão), make_whatsapp_link (válido/ inválido, URL-encode
+        reversível), format_message (1º nome, rótulo de categoria, sem
+        placeholders remanescentes).
+      - Price pyramid: preco_original vs vlr_unitario, última faixa aberta,
+        limite inferior inclusivo/superior exclusivo, não-mutação do DataFrame,
+        percentuais de receita e resumos.
+  • Rodar_Testes.bat na raiz — duplo-clique roda tudo e diz se passou.
+  • Health-check do app em execução APÓS as mudanças: HTTP 200 (intacto).
+
+POR QUE ISSO IMPORTA: a partir de agora, qualquer alteração futura na lógica de
+RFM, telefone/WhatsApp ou faixas de preço que quebre o comportamento é detectada
+ANTES de ir para a loja — exatamente a rede de segurança que falta para evoluir
+o app com confiança (login, captador/funil, tela "Hoje") sem medo de regressão.
+
+NADA pendente desta iteração precisou de intervenção manual (tudo rodou e passou).
+Aprendizado registrado: pytest NÃO está no venv; em vez de instalar (risco de
+supply chain + mexer no ambiente de produção à noite), usei unittest da stdlib.
+Próxima evolução de testes depende de modularizar app.py (fatia estrutural).
+
+--------------------------------------------------------------------------------
+ITERAÇÃO 4 (30/05/2026 00:04–00:1x) — COBERTURA DE TESTES NO NÚCLEO DE SEGURANÇA
+--------------------------------------------------------------------------------
+CONTEXTO: execução horária autônoma. Janela 22h–04h OK (agora 00h04 de 30/05).
+Backup "the builder\Backup 00 30 05 2026" criado e VERIFICADO (42 arquivos,
+9,23 MB; hash do app.py idêntico ao original; pepper.db copiado — o original
+estava travado pelo app em execução, por isso só o backup pôde ser lido).
+Regressão antes de mexer: 43/43 testes da Iteração 3 -> TODOS passando.
+
+PRINCÍPIO MANTIDO: app EM PRODUÇÃO e fiscal -> "primeiro, não quebrar". Ninguém
+presente -> escolhi de novo a melhoria de MAIOR valor, RISCO ZERO e SEM depender
+de decisão sua. A Iteração 3 criou a rede de testes; faltava cobrir os módulos
+mais sensíveis que estavam SEM nenhum teste — entre eles o cofre de segredos
+(secure_store.py), que é o componente de segurança nº 1 do app. 100% aditivo:
+só cria arquivos em tests\, não importa nada do app.py em execução, usa apenas
+unittest da stdlib (sem pip install -> zero risco de supply chain).
+
+O QUE FOI FEITO (já aplicado e validado — 100 testes no total, TODOS passando):
+  • tests\test_secure_store.py (24 testes) — trava o comportamento do COFRE:
+      - round-trip gravar/ler; sobrescrita; Unicode preservado;
+      - load_secrets() devolve {} em arquivo inexistente, JSON corrompido ou
+        topo que não é dict (best-effort: NUNCA quebra o app);
+      - escrita ATÔMICA não deixa arquivos .tmp para trás;
+      - split_disk() ESVAZIA token + sefaz_cert_b64 + sefaz_cert_password e
+        PRESERVA campos não-sensíveis, sem mutar o dict de entrada;
+      - has_plaintext() detecta segredo em texto puro; lista SENSITIVE_KEYS
+        travada (se um segredo novo for adicionado, o teste obriga revisão).
+      ISOLAMENTO: todos os testes apontam PEPPER_SECRETS_DIR para um diretório
+      TEMPORÁRIO. NENHUM teste toca o cofre real em %LOCALAPPDATA%\Pepper
+      (confirmado: data de gravação do cofre real inalterada — 29/05 22:39).
+  • tests\test_lens_brands.py (19 testes) — detect_brand para cada marca
+      (ChilliVision/ChilliTek, Hoya, Zeiss, Essilor/Varilux incl. Crizal/
+      Transitions/Kodak), "Outros", case-insensitive, None/número/vazio sem
+      quebrar, prioridade da 1ª regra, e validação de que toda marca tem cor HEX.
+  • tests\test_client_map.py (14 testes) — só os helpers PUROS (_norm_key,
+      _title_case, _parse_month, _parse_date_str: acentos, BR/ISO/ano-curto,
+      datas inválidas). NÃO chamei import_from_csv/import_from_api_data/
+      save_clients de propósito: eles ESCREVEM em data\client_map.json (dado
+      real de produção). Confirmado intacto: client_map.json/meta de 27/05.
+  • Rodar_Testes.bat já usa "discover -s tests" -> pegou os 3 arquivos novos
+      automaticamente, sem alteração.
+  • Health-check do app APÓS as mudanças: HTTP 200 (intacto).
+
+OS 4 FEEDBACKS NESTA ITERAÇÃO (foco: o que mudou de ontem para hoje):
+  • VENDEDOR LEIGO: nenhuma mudança visível na tela (correto — não quero
+    arriscar o app que ele usa de dia). Continua valendo o pedido nº1 dele:
+    uma tela "Hoje" dizendo "ligue para estes 8 clientes" (depende de decisão
+    sua — item 3.1). Esta noite trabalhei "embaixo do capô".
+  • DESIGNER: idem — pendências visuais seguem no backlog (densidade, tela Hoje,
+    hierarquia). Nada de design foi tocado para não introduzir regressão visual.
+  • EXECUTIVO COMERCIAL: o valor de hoje é CONFIABILIDADE. Um CRM em que a
+    classificação RFM, o link de WhatsApp e agora o COFRE de credenciais têm
+    teste automatizado é um ativo que a rede pode escalar para mais lojas sem
+    medo. A lacuna comercial real (captador/funil/ranking) continua sendo a
+    prioridade de produto — aguarda seu OK no 1.3.
+  • PROGRAMADOR/SEGURANÇA (fintech): este era o pedido explícito — "o cofre de
+    segredos não pode existir sem teste de regressão". Agora existe, e cobre os
+    três modos de falha que mais doem (corrupção, ausência, tipo errado) provando
+    o fallback "best-effort". Cobertura subiu de 3 para 6 módulos testados.
+
+PESQUISA DE CRM (reforço, base óticas — Salesforce/Dynamics/RD/Linx Microvix):
+  Em todos eles a camada de credenciais/integração tem testes de contrato e a
+  rotação de segredo é auditável. O Pepper já segue o mesmo princípio de cofre;
+  o próximo passo equivalente ao mercado é teste de CONTRATO das integrações
+  (Microvix/SEFAZ) com respostas "mockadas" — só viável após modularizar app.py
+  e injetar caminhos/endpoints (fica no backlog estrutural, item de modularização).
+
+NADA pendente desta iteração precisou de intervenção manual (tudo rodou/passou).
+APRENDIZADO desta noite (evolução): (1) pepper.db fica TRAVADO pelo app em
+execução — hash do original falha; validei o backup pela cópia + tamanho idêntico
+em vez de hash do original. (2) import_from_csv/save_* gravam em data\ real;
+módulos com escrita em produção só entram em teste depois da modularização com
+injeção de caminho — registrei isso para não repetir tentativa de testá-los à
+noite. Próximo alvo aditivo de risco zero: testar db.py contra um SQLite em
+arquivo temporário (sem tocar pepper.db de produção).
+
+================================================================================
+ITERAÇÃO 5 (30/05/2026 01:04–01:1x) — TESTES DA PERSISTÊNCIA (HISTÓRICO DE CONTATOS)
+--------------------------------------------------------------------------------
+CONTEXTO: execução horária autônoma. Janela 22h–04h OK (agora 01h04 de 30/05).
+Backup "the builder\Backup 01 30 05 2026" criado e VERIFICADO (55 arquivos,
+9,6 MB; hash SHA-256 do app.py IDÊNTICO ao original; data\ conferido por tamanho
+— pepper.db/config.json/produto_map.json/client_map.json todos batem).
+Regressão antes de mexer: 100/100 testes das iterações 3–4 -> TODOS passando.
+App em execução health-check: HTTP 200 antes e depois.
+
+PRINCÍPIO MANTIDO: app EM PRODUÇÃO e fiscal -> "primeiro, não quebrar". Ninguém
+presente -> de novo a melhoria de MAIOR valor, RISCO ZERO e SEM depender de
+decisão sua. Era exatamente o "próximo alvo" que a Iteração 4 deixou anotado:
+cobrir modules\db.py — a camada que guarda as sugestões salvas e, sobretudo, o
+HISTÓRICO DE CONTATOS do WhatsApp. 100% aditivo: só cria arquivo em tests\,
+usa só unittest da stdlib (sem pip install -> zero risco de supply chain).
+
+POR QUE db.py É CRÍTICO PARA O NEGÓCIO (não é teste "de enfeite"):
+  É o db.py que decide, via was_contacted_this_month(), se um cliente JÁ foi
+  abordado no mês — ou seja, o que impede o vendedor/captador de torrar o mesmo
+  cliente duas vezes e queimar a base. E é days_since_last_contact() que vai
+  alimentar a futura régua de recontato (D+7 / recall 11 meses). Se a lógica de
+  DATAS desses dois métodos quebrar, o CRM passa a sugerir o contato errado —
+  prejuízo comercial direto e silencioso. Por isso travamos com regressão.
+
+O QUE FOI FEITO (já aplicado e validado — 123 testes no total, TODOS passando):
+  • tests\test_db.py (23 testes) — trava o comportamento de modules\db.py:
+      - Inicialização: cria o arquivo, cria as 2 tabelas, é idempotente
+        (reabrir a conexão não apaga dados).
+      - Sugestões de mix: save retorna rowid incremental; list ordena do mais
+        novo p/ o mais antigo e LIMITA em 20; load faz round-trip preservando
+        acentuação (çãõ); load de id inexistente devolve {}; delete remove;
+        delete de id inexistente não explode.
+      - Histórico de contatos: log + list; ordenação mais-recente-primeiro;
+        respeita o limit; código numérico é normalizado para texto.
+      - REGRAS DE DATA (o coração do risco): "contatado este mês" = True após
+        log de hoje, False se o último contato foi mês passado, False se nunca;
+        "dias desde o último" = -1 se nunca, 0 se hoje, conta os dias certos,
+        usa o contato MAIS RECENTE quando há vários, e devolve -1 se a data no
+        banco estiver corrompida (prova o try/except defensivo do método).
+  • ISOLAMENTO À PROVA DE BALA: cada teste faz monkeypatch de db._DB_PATH para
+      um SQLite em arquivo TEMPORÁRIO; datas controladas são inseridas direto na
+      tabela (sem depender do relógio). Um GUARD em setUpClass/tearDownClass
+      grava o mtime do data\pepper.db real antes e exige que ele esteja IGUAL no
+      fim — confirmado: o banco de produção NÃO foi tocado (mtime idêntico).
+  • Rodar_Testes.bat já usa "discover -s tests" -> pegou o arquivo novo sozinho.
+  • Cobertura subiu de 6 para 7 módulos testados (rfm, marketing, price_pyramid,
+      secure_store, lens_brands, client_map e agora db).
+
+OS 4 FEEDBACKS NESTA ITERAÇÃO (foco: o que mudou de ontem para hoje):
+  • VENDEDOR LEIGO: nada mudou na tela (de propósito — não arrisco o app que ele
+    usa de dia). Mas hoje protegi justamente a função que mais o ajuda sem ele
+    ver: o app não vai mandar ele ligar para alguém que já foi contatado este mês.
+    Continua de pé o pedido nº1: uma tela "Hoje" com a lista de quem ligar (3.1).
+  • DESIGNER: sem mudança visual (zero regressão de tela). Pendências visuais
+    seguem no backlog (densidade, tela "Hoje", hierarquia).
+  • EXECUTIVO COMERCIAL: o ativo de hoje é a INTEGRIDADE DA BASE. A regra "não
+    falar com o mesmo cliente 2x no mês" agora é garantida por teste — é isso que
+    diferencia uma operação de captação profissional de uma que queima leads. A
+    lacuna comercial real (captador/funil/ranking) segue prioridade nº1: aguarda
+    seu OK no 1.3.
+  • PROGRAMADOR/SEGURANÇA (fintech): a camada de persistência era a última peça
+    de lógica do app SEM teste. Agora as 3 áreas de dados (RFM, segredos, banco)
+    têm regressão. O padrão de mercado (contrato das integrações Microvix/SEFAZ
+    com mocks) continua dependendo de modularizar o app.py — segue no backlog.
+
+PESQUISA DE CRM (reforço, base óticas — Salesforce/Dynamics/RD/Linx Microvix):
+  Em todos, a "supressão de contato" (não recontatar dentro de uma janela) é
+  regra de ouro de qualquer cadência/automação de marketing. RD Station chama de
+  "fluxo com filtro de já-convertidos"; Salesforce de "suppression list". O
+  Pepper já tem o mecanismo (was_contacted_this_month) e agora ele está provado.
+  Próximo passo equivalente ao mercado: tornar a JANELA configurável por campanha
+  (hoje é fixa em "mês calendário") — fica no backlog de produto (não mexo sozinho
+  porque muda comportamento de negócio).
+
+NADA pendente desta iteração precisou de intervenção manual (tudo rodou/passou).
+APRENDIZADO desta noite (evolução): o monkeypatch de uma constante de caminho no
+nível do módulo (db._DB_PATH) é a forma limpa de testar uma classe que fixa o
+caminho no __init__ sem precisar refatorar o código de produção — guardo este
+padrão para quando for testar outros módulos que escrevem em data\ (client_map),
+combinado com injeção de caminho na modularização do app.py. Próximo alvo aditivo
+de risco zero: testar os helpers PUROS de product_map.py (respeitando o cabeçalho
+de governança — só leitura/transformação, sem tocar import/persistência travados).
+
+################################################################################
+#  ITERAÇÃO 6 — 30/05/2026 02:04  (execução automática horária, 22h–04h)        #
+################################################################################
+
+BACKUP: "Backup 02 30 05 2026" criado e VERIFICADO (44 arquivos, 9,25 MB).
+  Conferência por hash SHA-256: app.py, config.py, modules/product_map.py,
+  modules/db.py e requirements.txt — todos IDÊNTICOS ao original. Pasta data/
+  conferida por tamanho (pepper.db 16 KB, config.json 1.410 b, produto_map.json
+  8,73 MB, client_map.json 465 KB — todos batem). venv/__pycache__/logs excluídos.
+REGRESSÃO: 123/123 antes → 144/144 depois. App de produção HTTP 200 (saudável)
+  antes e depois. Catálogo de produção (produto_map.json) comprovadamente intacto
+  (mtime 29/05 12:47 inalterado).
+
+O QUE FIZ (aditivo, risco zero — nenhum arquivo de produção alterado):
+  Cumpri exatamente o "próximo alvo" que a Iteração 5 deixou registrado: cobrir
+  com testes os HELPERS PUROS / SOMENTE-LEITURA do módulo product_map.py — a BASE
+  FUNDAMENTAL do app, que é BLOQUEADA por governança. Novo arquivo tests/
+  test_product_map.py com 21 testes, TODOS PASSAM:
+    • ref_to_category() — o coração do catálogo (prefixo da referência → categoria).
+      Travei a lógica SUTIL e crítica de ordem das regras:
+        - "LV.MU…" -> ML (Armação Multi), e NÃO LV (regra longa vence a curta);
+        - "LE.CO/LE.CT" -> LC (Lente de Contato) e NÃO LE (Lente) — precedência;
+        - LV/OC/ML/LE/AC/RE/MA->OT, desconhecido->None, case-insensitive, strip,
+          e coerção de entrada não-string (int/None não quebram).
+    • get_entry() — lookup puro cod_produto->entrada (achado, ausente, coerção/strip).
+    • load_map() / load_meta() — leitura: arquivo ausente->{}, JSON corrompido->{},
+      JSON válido->lido. ISOLAMENTO: _MAP_PATH/_META_PATH monkeypatchados p/ tempfile.
+  RESPEITO À GOVERNANÇA: NÃO chamei import_from_df / import_from_api_data /
+  save_map / _save_meta (qualquer função que ESCREVE no catálogo). Um guard em
+  setUpClass/tearDownClass confirma o mtime do produto_map.json de produção.
+  NÃO toquei app.py nem o código de product_map.py — apenas adicionei testes.
+  Rodar_Testes.bat usa discover -> já incluiu o novo arquivo automaticamente.
+
+FEEDBACK DAS 4 PERSONAS (síntese desta iteração):
+  • VENDEDOR LEIGO: "categoria errada de produto = sugestão de mix errada na minha
+    mão". Antes eu confiava cego que LV.MU caía em Armação Multi e LE.CO em Lente
+    de Contato; agora isso é GARANTIDO por teste e não vai mudar sem alguém perceber.
+    O que ainda falta pra mim continua igual: uma tela "Hoje" e um ranking que me
+    diga, ao abrir o app, exatamente quem ligar — segue dependendo do seu OK.
+  • DESIGNER (renomado, BR): nenhuma mudança visual nesta noite (foi blindagem de
+    lógica). A dívida de design segue a mesma e prioritária: hierarquia da home,
+    estado "Hoje", e os segredos mascarados na tela de Configurações. Sem regressão
+    estética porque nada de UI foi tocado — correto para uma janela noturna.
+  • EXECUTIVO COMERCIAL (40 anos): a taxonomia de produto é a espinha dorsal de
+    qualquer relatório de mix e de qualquer meta por categoria. Num CRM de óticas,
+    errar "Multi" vs "Grau" ou "Lente de Contato" vs "Lente" distorce comissão e
+    sortimento. Blindar essa regra é higiene de dados — o que todo diretor comercial
+    quer antes de cobrar meta. A lacuna de valor (captador/funil/ranking) continua
+    sendo a nº1 e aguarda decisão do 1.3.
+  • PROGRAMADOR/SEGURANÇA (fintech): product_map era a última peça de lógica de
+    NEGÓCIO sem rede de testes. Agora RFM, marketing, pirâmide de preço, cofre de
+    segredos, banco (db) e catálogo (product_map) têm regressão — 144 testes. O
+    módulo é bloqueado por governança; cobri-lo SEM tocá-lo (só leitura + guard de
+    mtime) é exatamente a postura correta: documenta e protege o contrato sem violar
+    a política. O próximo passo de maturidade segue sendo modularizar o app.py p/
+    permitir testar as integrações (Microvix/SEFAZ) com mocks de contrato.
+
+PESQUISA DE CRM (reforço, base óticas — Salesforce/Dynamics/RD/Linx Microvix):
+  Em todos os CRMs maduros, a CATEGORIZAÇÃO/normalização de catálogo (product
+  taxonomy) é tratada como "master data" e protegida por validação automatizada —
+  Salesforce usa Product2 + Product Family com regras de validação; Dynamics tem
+  hierarquia de categorias de produto versionada; o Linx Microvix expõe a árvore
+  de seção/grupo/subgrupo como dado de governança do ERP. A direção do Pepper
+  (módulo bloqueado + agora regressão sobre a regra de prefixo) está alinhada à
+  prática de mercado: a categoria nunca deve "derivar" silenciosamente. Próximo
+  passo equivalente ao mercado: expor no app um relatório de "produtos sem
+  categoria" (ref->None) para o gestor sanear o catálogo — fica no backlog de
+  produto (não construo sozinho porque envolve nova tela/decisão de UX).
+
+NADA pendente desta iteração precisou de intervenção manual (tudo rodou/passou).
+APRENDIZADO desta noite (evolução): dá para AUMENTAR a cobertura de um módulo
+BLOQUEADO por governança sem violar a política — basta restringir os testes às
+funções puras/de leitura e adicionar um guard de mtime que falha se a suíte tocar
+o dado de produção. Esse padrão ("testar o contrato sem tocar o código travado")
+vale para qualquer artefato sensível/imutável. Próximo alvo aditivo de risco zero:
+escrever testes de "produtos sem categoria" sobre um produto_map sintético (em
+tempfile) para medir quanto do catálogo cairia em None — insumo direto para o
+futuro relatório de saneamento de catálogo, sem tocar dados reais.
+
+--------------------------------------------------------------------------------
+ITERAÇÃO 7 (30/05/2026 03:04) — AUDITORIA DE SAÚDE DO CATÁLOGO + REGRESSÃO
+--------------------------------------------------------------------------------
+Janela OK (03h04). Backup "Backup 03 30 05 2026" criado e VERIFICADO (47 arquivos,
+9,4 MB; SHA-256 confere em app.py/config.py/_auto_update.py/requirements.txt/
+modules/product_map.py/modules/db.py/api/microvix.py; data/ conferido por tamanho —
+pepper.db está travado pelo app em execução). Regressão 144/144 antes → 151/151
+depois. App HTTP 200 antes e depois. Catálogo de produção INTACTO (mtime 29/05 12:47).
+
+Fiz o "próximo alvo" que a Iter. 6 deixou planejado — só que com VALOR REAL: rodei
+uma AUDITORIA SOMENTE-LEITURA do catálogo de produção (modules.product_map.load_map
++ ref_to_category, sem nenhuma escrita) e cobri a métrica com testes sintéticos.
+
+>>> NÚMEROS REAIS DO CATÁLOGO (56.342 produtos, 30/05/2026) <<<
+  Distribuição por categoria (armazenada):
+    LC (Lente de Contato) ... 17.829 (31,6%)
+    OC (Óculos Solar) ....... 16.384 (29,1%)
+    LE (Lentes) ............. 12.369 (22,0%)
+    LV (Armação de Grau) ....  4.283 ( 7,6%)
+    ML (Armação Multi) ......  4.045 ( 7,2%)
+    AC (Acessórios) .........  1.413 ( 2,5%)
+    RE (Relógios) ...........     18
+    OT (Outros) .............      1
+  Saúde:
+    • Sem referência: 0  (ótimo).
+    • Sem descrição: 0  (ótimo).
+    • ref->None ao RE-IMPORTAR: 53 (0,1%)  ← GAP REAL na regra (ver abaixo).
+    • SEM PREÇO (preco_original): 56.170 de 56.342 = 99,7% (!!).
+
+>>> ACHADO 1 — GAP DE CATEGORIZAÇÃO NO MÓDULO BLOQUEADO (precisa do seu OK) <<<
+  Estes prefixos de referência NÃO têm regra em product_map._PREFIX_RULES e não há
+  fallback curto "OC"/"LV", então hoje caem em None (sem categoria):
+      OC.ES = 27   OC.KD = 12   OC.TN = 3   (variações de Óculos Solar: especial/kids/teen)
+      LV.KD =  7   LV.TN =  4               (Armação de Grau kids/teen)
+  Os 53 produtos JÁ estão catalogados com a categoria certa (entraram sob regras
+  antigas), MAS numa próxima RE-IMPORTAÇÃO seriam DESCARTADOS, porque import_from_df()
+  pula quem tem categoria None. É uma armadilha silenciosa de perda de catálogo.
+  NÃO corrigi — o módulo é BLOQUEADO por governança. Em vez disso TRAVEI o
+  comportamento atual com regressão (tests/test_product_map_coverage.py) e registrei
+  a tarefa abaixo. Quando você autorizar, a correção é cirúrgica: adicionar as regras
+  OC.ES/OC.KD/OC.TN (→OC) e LV.KD/LV.TN (→LV) em _PREFIX_RULES (depois das mais longas).
+
+>>> ACHADO 2 — 99,7% DOS PRODUTOS SEM PREÇO (impacto comercial direto) <<<
+  Só 172 de 56.342 produtos têm preco_original. A "pirâmide de preços" e qualquer
+  sugestão baseada em ticket/faixa de preço estão, na prática, sem dado de entrada.
+  Causa provável: a importação que populou o catálogo veio de uma planilha/endpoint
+  SEM coluna de preço reconhecida (ver _price_candidates em product_map). Isto NÃO é
+  bug de código — é dado de origem. Vira tarefa: reimportar com a coluna de preço
+  correta (ou puxar preço via API LinxProdutos). É a alavanca de valor mais barata
+  hoje: destrava a pirâmide de preços que já está construída.
+
+O QUE APLIQUEI (risco zero, aditivo): tests/test_product_map_coverage.py (+7 testes,
+total 151). Inclui (a) regressão que documenta os prefixos que hoje caem em None —
+se alguém categorizá-los, o teste falha de propósito e vira a checklist da correção;
+(b) a métrica pura category_coverage() usada para gerar os números acima, validada
+sobre catálogo sintético em tempfile. Guard de mtime confirma catálogo de produção
+intocado. NÃO chamei import/save. NÃO toquei product_map.py (módulo BLOQUEADO).
+
+OS 4 FEEDBACKS (Iteração 7):
+  • VENDEDOR LEIGO: "se 99% dos produtos não têm preço, a sugestão de 'subir o ticket'
+    não tem como funcionar direito". Faz sentido — quando o preço entrar, a pirâmide
+    me ajuda de verdade a oferecer a lente/armação certa pra cada cliente.
+  • DESIGNER (BR): sem mudança de UI nesta noite (auditoria de dados). Sugestão de
+    produto que nasce daqui: uma faixinha de "saúde do catálogo" em Configurações
+    (53 sem categoria · 99,7% sem preço) — transparência de dado é design de confiança.
+  • EXECUTIVO COMERCIAL (40 anos): catálogo sem preço é meta de mix cega. E os 53
+    "kids/teen" caindo fora da categoria distorcem o sortimento de público infantil —
+    justamente um segmento de margem boa em ótica. Os dois achados são dinheiro na mesa.
+  • PROGRAMADOR/SEGURANÇA (fintech): a postura está correta — auditei produção só com
+    leitura, travei o contrato com regressão e empurrei a mudança do módulo bloqueado
+    para decisão humana. O 99,7% sem preço é "data quality", não bug; o caminho de
+    mercado é validação na ingestão (Salesforce/Dynamics rejeitam SKU sem master-data
+    obrigatório). Próximo passo de maturidade segue: modularizar app.py p/ testar
+    integrações com mocks.
+
+PESQUISA DE CRM (reforço): em Salesforce/Dynamics/RD/Linx Microvix o catálogo é
+"master data" com CAMPOS OBRIGATÓRIOS validados na ingestão (preço, família/categoria).
+"Produto sem preço" ou "sem categoria" normalmente é BLOQUEADO ou sinalizado num
+painel de qualidade de dados. O Pepper já trata categoria como dado governado (módulo
+bloqueado + regressão); o passo equivalente é (1) fechar o gap kids/teen e (2) tornar
+o preço um campo de qualidade monitorado — exatamente as duas tarefas registradas.
+
+NADA desta iteração precisou de intervenção manual (tudo rodou/passou). Os dois
+achados acima viram tarefas suas (catálogo) — não os executo sozinho porque um mexe
+em módulo BLOQUEADO e o outro depende de reimportar dado de origem.
+APRENDIZADO (evolução): o "alvo de risco zero" da noite pode entregar valor de
+negócio REAL — não só mais um teste. Rodar a métrica de cobertura sobre o catálogo
+de PRODUÇÃO (só leitura) transformou um teste sintético em dois achados concretos
+(gap de 53 SKUs kids/teen + 99,7% sem preço). Padrão para próximas noites: todo teste
+novo sobre um módulo de dado deve, de quebra, rodar sua métrica contra produção em
+modo leitura e reportar o número real. Próximo alvo aditivo: auditar igual o
+client_map (clientes sem telefone normalizável / sem segmento RFM) — insumo direto
+para medir alcance real das campanhas de reativação por WhatsApp.
+
+================================================================================
+  FIM DO RELATÓRIO
+  Iteração 1  (29/05/2026 22:19) — diagnóstico + 4 feedbacks + roadmap.
+  Iteração 2  (29/05/2026 23:05) — P0 (segredos fora do OneDrive) + HTTPS +
+              auto-update notify-only + retenção + Pepper Safe. Tudo testado.
+  Iteração 3  (29/05/2026 23:1x) — backup 23h + suíte de testes (43/43) +
+              Rodar_Testes.bat. Risco zero, app intacto (HTTP 200).
+  Iteração 4  (30/05/2026 00:1x) — backup 00h + cobertura do cofre de segredos,
+              marcas de lente e helpers de cliente (100/100). Risco zero, HTTP 200.
+  Iteração 5  (30/05/2026 01:1x) — backup 01h + testes da persistência db.py
+              (histórico de contatos / regras de data) (123/123). Risco zero,
+              HTTP 200, banco de produção comprovadamente intacto.
+  Iteração 6  (30/05/2026 02:04) — backup 02h + testes dos helpers puros/leitura
+              do módulo BLOQUEADO product_map.py (regra de categoria por prefixo)
+              (144/144). Risco zero, HTTP 200, catálogo de produção intacto.
+  Iteração 7  (30/05/2026 03:04) — backup 03h + auditoria SOMENTE-LEITURA do
+              catálogo (56.342 produtos) + testes de cobertura (151/151). Achou
+              53 SKUs kids/teen que caem fora de categoria e 99,7% sem preço.
+              Risco zero, HTTP 200, catálogo de produção intacto.
+  Pendências para você: decidir 1.2 (login/papéis), 1.3 (captador/funil),
+  2.1 (LGPD) e UX da tela "Hoje". O resto eu sigo evoluindo, noite a noite.
+
+  >>> NADA REQUER INTERVENÇÃO MANUAL NA EXECUÇÃO DESTA NOITE (Iter. 7). <<<
+  NOVAS TAREFAS DE CATÁLOGO (achados da Iter. 7 — ação/decisão sua):
+    [ ] CATÁLOGO-1 (decisão + módulo BLOQUEADO): autorizar adicionar em
+        product_map._PREFIX_RULES as regras OC.ES/OC.KD/OC.TN (→ OC) e
+        LV.KD/LV.TN (→ LV), depois das regras mais longas. Corrige os 53 SKUs
+        kids/teen/especial que hoje caem em None e seriam descartados numa
+        re-importação. (Eu não toco o módulo bloqueado sem seu OK; quando
+        autorizar, o teste tests/test_product_map_coverage.py vira a checklist.)
+    [ ] CATÁLOGO-2 (dado de origem): reimportar o catálogo COM a coluna de preço
+        (ou puxar preço via API LinxProdutos). Hoje 56.170 de 56.342 produtos
+        (99,7%) estão SEM preco_original — isso deixa a pirâmide de preços, que
+        já está pronta no app, sem dado de entrada. Maior alavanca de valor barata.
+  Continuam pendentes (de noites anteriores, ação HUMANA — não consigo fazer):
+    [ ] P0-resto: rotacionar token Microvix (admin Microvix), trocar/reemitir a
+        senha do certificado A1 (tratar como vazada) e reiniciar o app (Iniciar.bat)
+        para carregar o código seguro do cofre.
+    [ ] Decidir 1.2 (login/papéis), 1.3 (captador/funil), 2.1 (LGPD opt-out),
+        3.1 (tela "Hoje") para eu poder construir nas próximas noites.
+================================================================================
+
+================================================================================
+  ITERAÇÃO 8 — 30/05/2026 22:04 (execução automática horária, janela 22h-04h OK)
+================================================================================
+  Backup: "Backup 22 30 05 2026" criado e VERIFICADO (48 arquivos, 9,26 MB;
+  hash SHA-256 de app.py confere; config.py/_auto_update.py/requirements.txt/
+  product_map.py/db.py/microvix.py conferem; data/ conferido por tamanho —
+  pepper.db travado pelo app em execução). App saudável HTTP 200 antes e depois.
+  Regressão: 151/151 antes  ->  159/159 depois (+8). Nenhum .py de produção
+  alterado (mudança puramente aditiva em tests/).
+
+  NOTA SOBRE app.py: detectei que app.py foi editado durante o dia (05:13) — uma
+  única linha: use_container_width=True -> width="stretch" (migração de API do
+  Streamlit, na tabela de aniversariantes). App segue HTTP 200. Apenas registro;
+  não reverti. OBS: ainda há OUTRAS ocorrências de use_container_width em app.py
+  que o Streamlit novo vai depreciar — vide UX-2 abaixo.
+
+  NOTA: existe um arquivo "_RELATORIO_EXECUCAO_PENDENTE.txt" (gerado às 13:05 por
+  um disparo DIURNO da tarefa, fora da janela 22h-04h, em que as ferramentas
+  retornaram vazio). É um FALSO ALARME — a execução desta noite (Iter. 8) rodou
+  normalmente. Tentei removê-lo para manter um arquivo único (como você pediu),
+  mas a remoção foi bloqueada pela política de segurança (não fui eu que o criei).
+  >>> Pode apagar "_RELATORIO_EXECUCAO_PENDENTE.txt" com segurança. <<<
+
+  --------------------------------------------------------------------------
+  ALVO DESTA NOITE (risco zero): auditoria SOMENTE-LEITURA do ALCANCE da base
+  de clientes — quão longe as campanhas (WhatsApp / aniversário) realmente vão.
+  Base de produção: 1.825 clientes (data/client_map.json, intacto, comprovado
+  por mtime). Métrica pura nova + 8 testes em tests/test_client_map_coverage.py.
+
+  ACHADOS REAIS (números de produção):
+   1) WhatsApp (ÚNICO canal de saída ativo hoje): só 757/1825 = 41,5% têm
+      telefone normalizável. Desses, 749 são CELULAR e 8 são FIXO (link wa.me
+      de fixo não funciona). => ~58% da base é INALCANÇÁVEL pelo WhatsApp.
+   2) E-MAIL: 1.799/1825 = 98,6% têm e-mail preenchido — MAS o app NÃO tem
+      canal de e-mail. É a MAIOR alavanca de alcance barata: um canal de e-mail
+      (reativação + aniversário) mais que DOBRARIA o alcance atual.
+   3) ANIVERSÁRIO: a campanha usa o campo `aniversario` (mês), preenchido em só
+      689/1825 = 37,8%. Onde existe, bate 100% com o mês de `nascimento`. Os
+      1.136 sem aniversário têm nascimento = "-" (placeholder, não é data) —
+      logo NÃO dá para derivar por código: é limite de QUALIDADE DE DADO de
+      origem (export Microvix). Vide DADOS-1.
+   4) DDD padrão (config.ddd_padrao) está VAZIO. Hoje custa +0 de alcance (todos
+      os telefones da base já trazem DDD), mas é trava PREVENTIVA: importações
+      futuras com celular de 9 díg. SEM DDD seriam 100% descartadas. Vide DADOS-2.
+
+  >>> NADA REQUER INTERVENÇÃO MANUAL NA EXECUÇÃO DESTA NOITE (Iter. 8). <<<
+
+  NOVAS TAREFAS / OPORTUNIDADES (achados da Iter. 8 — ação/decisão sua):
+    [ ] CANAL-EMAIL (oportunidade nº1 de alcance — decisão sua p/ eu construir):
+        criar um canal de e-mail no Marketing/Campanhas (reativação RFM +
+        aniversário) usando o e-mail SMTP da ótica ou um provedor (ex.: Brevo/
+        SendGrid). Alcance saltaria de 41,5% (WhatsApp) para ~98,6% (e-mail).
+        Modelo dos CRMs de referência (RD Station/Salesforce) é e-mail-first +
+        WhatsApp como complemento. Quando você aprovar, construo em fatia testada.
+    [ ] DADOS-1 (qualidade de dado de origem): 1.136 clientes (62%) estão com
+        nascimento = "-". Reimportar clientes do Microvix trazendo a data de
+        nascimento real elevaria a campanha de aniversário de 37,8% p/ ~100%.
+        Não é corrigível por código — é o export de origem.
+    [ ] DADOS-2 (config preventiva, 1 clique): preencher config.ddd_padrao (use o
+        botão "📡 Detectar DDD automático" já existente em Configurações, ou
+        digite o DDD da loja). Evita perda silenciosa de celulares sem DDD em
+        importações futuras. Custo hoje: zero; benefício: à prova de falha futura.
+    [ ] UX-2 (dívida técnica leve): app.py ainda tem várias chamadas com
+        use_container_width=True (depreciado no Streamlit novo). Trocar todas por
+        width="stretch" de uma vez, num momento de app parado, evita warnings/
+        quebras numa futura atualização do Streamlit. (Não fiz à noite com o app
+        rodando — editar app.py em produção é o único caminho que quebra na hora.)
+
+  Continuam pendentes (de noites anteriores, ação HUMANA — não consigo fazer):
+    [ ] P0-resto: rotacionar token Microvix, trocar/reemitir senha do cert A1
+        (tratar como vazada), reiniciar o app (Iniciar.bat) p/ carregar o cofre.
+    [ ] CATÁLOGO-1 (módulo BLOQUEADO): autorizar regras OC.ES/OC.KD/OC.TN→OC e
+        LV.KD/LV.TN→LV (53 SKUs kids/teen). CATÁLOGO-2: reimportar com preço.
+    [ ] Decidir 1.2 (login/papéis), 1.3 (captador/funil), 2.1 (LGPD opt-out),
+        3.1 (tela "Hoje") para eu construir nas próximas noites.
+
+  PRÓXIMO ALVO DE RISCO ZERO (próxima noite): auditar a base por SEGMENTO RFM —
+  quantos clientes caem em cada segmento e quantos dos "reativáveis" (Em Risco/
+  Hibernando) de fato têm WhatsApp — para dimensionar o ganho real do CANAL-EMAIL
+  acima (cruzar alcance x segmento). Tudo somente-leitura, sobre dados sintéticos
+  nos testes + leitura da produção para o número real.
+================================================================================
+
+================================================================================
+ITERAÇÃO 9 — 31/05/2026 00:04 (run automático horário, janela 22h–04h OK)
+================================================================================
+
+  BACKUP: "Backup 00 31 05 2026" criado e VERIFICADO (48 arquivos, 9,27 MB).
+  app.py + config.py + _auto_update.py + requirements.txt + modules/db.py +
+  modules/product_map.py + api/microvix.py: SHA-256 IDÊNTICO ao original.
+  data/ (pepper.db, config.json, produto_map.json, client_map.json): tamanho OK.
+  (Obs.: a janela das 23h de 30/05 não rodou — run horário perdido; sem impacto.)
+
+  REGRESSÃO: 159/159 antes  →  166/166 depois (+7).  App HTTP 200 antes e depois.
+
+  --------------------------------------------------------------------------
+  ALVO PLANEJADO x EXECUTADO:
+  O alvo da Iter. 8 era cruzar ALCANCE x SEGMENTO RFM. Ao preparar, confirmei que
+  o segmento RFM é calculado a partir do df_retorno (dados de VENDA: recência/
+  frequência/valor) que vêm da API Microvix em tempo de execução — NÃO há cache
+  offline em data/. Logo o cruzamento RFM real NÃO é computável à noite sem bater
+  na API (que ainda falha SSL — vide pendência online). Em vez de forçar isso,
+  fiz o ANÁLOGO computável-offline e MAIS decisivo para a mesma pergunta de
+  negócio ("vale a pena o CANAL-EMAIL?"): medir o alcance REAL e o GANHO
+  INCREMENTAL do e-mail, aplicando a lição da Iter. 8 ("preenchido ≠ usável") —
+  desta vez validando o CONTEÚDO do campo e-mail, não só a presença.
+
+  ALVO DESTA NOITE (risco zero): auditoria SOMENTE-LEITURA da QUALIDADE do e-mail
+  e do GANHO do CANAL-EMAIL sobre os 1.825 clientes de produção (client_map.json,
+  intacto, comprovado por guard de mtime). Métrica pura nova + 7 testes em
+  tests/test_email_reach.py.
+
+  ACHADOS REAIS (números de produção, 31/05/2026):
+   1) E-MAIL VÁLIDO: 1.799/1825 = 98,6% têm e-mail preenchido E com formato
+      entregável (local@dominio.tld). DIFERENTE de `nascimento` (62% era "-"),
+      o campo e-mail PASSOU na validação de conteúdo — é majoritariamente usável.
+      (A lição da Iter. 8 foi aplicada e, neste campo, o dado se confirmou bom.)
+   2) GANHO INCREMENTAL DO CANAL-EMAIL = 1.050 clientes: é quanta gente HOJE é
+      100% inalcançável (sem WhatsApp) mas TEM e-mail válido. Ou seja, ligar o
+      canal de e-mail atinge +1.050 clientes (57,5% da base) que nenhuma campanha
+      alcança hoje. Esse é o tamanho real do prêmio do CANAL-EMAIL.
+   3) ALCANCE COMBINADO (WhatsApp OU e-mail válido) = 1.807/1825 = 99,0%, contra
+      41,5% só-WhatsApp hoje. Só 18 clientes (1,0%) ficam sem nenhum canal.
+   4) QUALIDADE/TYPO: ~10 e-mails têm formato válido mas DOMÍNIO com erro de
+      digitação (dão bounce): gmai.com×4, gmail.com.br×3, hotmal.com, gamail.com,
+      48gmail.com, 77gmail.com. Não muda o título (1.050), mas é ganho barato:
+      validar/sugerir correção de domínio no momento do import. Vide DADOS-3.
+   Perfil de domínios (confirma e-mail pessoal real, entregável): gmail 1.151,
+   hotmail 376, yahoo.com.br 67, outlook 39, mail.com 34, icloud 14…
+
+  >>> NADA REQUER INTERVENÇÃO MANUAL NA EXECUÇÃO DESTA NOITE (Iter. 9). <<<
+
+  ATUALIZAÇÃO DO BUSINESS CASE (reforça a tarefa CANAL-EMAIL já no backlog):
+    O CANAL-EMAIL deixa de ser "dobra o alcance" (estimativa da Iter. 8) e passa a
+    ter número fechado: 41,5% -> 99,0% de alcance, +1.050 clientes destravados,
+    com 98,6% de e-mails de formato válido. É, disparado, a maior alavanca de
+    alcance/menor custo do app — e o modelo dos CRMs de referência (RD Station,
+    Salesforce, Dynamics) é exatamente e-mail-first + WhatsApp como complemento.
+    Quando você aprovar, construo em fatia testada (a métrica pura email_reach_
+    report já está pronta e testada para alimentar o painel de alcance).
+
+  NOVA TAREFA / OPORTUNIDADE (achado da Iter. 9 — ação/decisão sua):
+    [ ] DADOS-3 (qualidade de dado, barato): corrigir ~10 e-mails com domínio
+        digitado errado (gmai.com, gmail.com.br, hotmal.com, gamail.com,
+        48gmail.com, 77gmail.com). Recuperação direta de entregabilidade. Ideal:
+        ao ligar o CANAL-EMAIL, adicionar validação/sugestão de domínio no import
+        (padrão RD Station/Salesforce) para não acumular bounces.
+
+  PRÓXIMO ALVO DE RISCO ZERO (próxima noite): auditar DUPLICIDADE de contato —
+  quantos clientes compartilham o MESMO telefone/e-mail (contas de família) e
+  quantos NOMES vêm com mojibake de encoding no export (ex.: "Gusm�o"), pois isso
+  afeta dedup de disparo e a personalização ("Olá, <nome ilegível>"). Tudo
+  somente-leitura sobre a base de produção + métrica pura testada em sintético.
+================================================================================
+
+================================================================================
+ITERAÇÃO 10 — 31/05/2026 01:04 (execução automática horária, janela 22h–4h OK)
+================================================================================
+RESUMO OPERACIONAL
+  • Backup "Backup 01 31 05 2026" criado e VERIFICADO (70 arquivos, 9,46 MB;
+    app.py/config.py/_auto_update.py/requirements.txt/product_map.py/db.py/
+    microvix.py com SHA-256 idêntico; data/ conferido por tamanho — pepper.db
+    fica travado pelo app em execução).
+  • Regressão: 166/166 antes  →  181/181 depois (+15 testes novos). App HTTP 200
+    antes e depois. Base de produção (client_map.json) NÃO foi tocada (guard de
+    mtime confirma).
+  • Mudança 100% ADITIVA: novo tests/test_contact_dedup.py. Nenhum .py de
+    produção alterado. app.py intocado.
+
+O QUE FOI FEITO (o alvo de risco zero que a Iter. 9 deixou planejado)
+  Auditoria SOMENTE-LEITURA da base de produção (1.825 clientes) para:
+  duplicatas de telefone/e-mail, e-mails PLACEHOLDER/compartilhados, e mojibake
+  de nome. Métrica pura (dedup_report) testada em base sintética; números reais
+  abaixo medidos numa varredura read-only que não escreve nada.
+
+ACHADOS CONCRETOS (produção, 31/05/2026)
+  1) DUPLICATAS DE TELEFONE: 23 grupos, 63 clientes no total, = 40 ENVIOS
+     REDUNDANTES de WhatsApp evitáveis. Maior grupo: 11 clientes no MESMO número
+     (quase-certo número da loja/placeholder), depois 5, 4, 3, 3… Disparar a
+     mesma campanha 11x para o mesmo telefone = custo + irritação + risco de
+     bloqueio do número no WhatsApp.
+  2) DUPLICATAS DE E-MAIL: 41 grupos, 150 clientes, = 109 envios redundantes.
+  3) >>> CORREÇÃO IMPORTANTE DO TÍTULO DA ITER. 9 <<<
+     A Iter. 9 anunciou "ganho incremental do CANAL-EMAIL = 1.050 / alcance
+     combinado 99,0%". Isso validou FORMATO mas não removeu e-mails que NÃO
+     alcançam o cliente individual:
+       - PLACEHOLDERS de "não tem e-mail" (passam no regex): unavailable@mail.com
+         ×34, naotem@gmail.com ×22, n@gmail.com ×6, naosei@gmail.com ×4,
+         nao@gmail.com ×3.
+       - COMPARTILHADOS (loja/vendedor/fallback): oticachillibeanspf@gmail.com ×7
+         (e-mail da própria loja), santosfrancielle159 ×4, alinegfalves ×3,
+         deka517 ×3.
+     Total: 107 clientes têm e-mail de formato válido que é "lixo" de alcance.
+     NÚMERO HONESTO CORRIGIDO:
+        ganho incremental CANAL-EMAIL: 1.050  ->  962   (88 superestimados)
+        alcance combinado (WA ou e-mail real): 99,0%  ->  94,2%
+     O caso do CANAL-EMAIL CONTINUA forte (962 clientes hoje 100% inalcançáveis
+     passariam a ser atingíveis), mas o número a usar na decisão é 962, não 1.050.
+  4) MOJIBAKE: 0 nomes com '�' (U+FFFD) ou bigramas de mojibake (Ã©, Ã£, Ã§…).
+     A hipótese "Gusm�o" levantada na Iter. 9 NÃO se confirmou — o import com
+     utf-8-sig + fallbacks preserva os acentos. ENCERRADO: não voltar a perseguir.
+
+  >>> NADA REQUER INTERVENÇÃO MANUAL NA EXECUÇÃO DESTA NOITE (Iter. 10). <<<
+
+NOVAS TAREFAS / OPORTUNIDADES (achados da Iter. 10 — ação/decisão sua)
+  [ ] DADOS-4 (limpeza de base, alto valor / baixo custo): tratar os 107 e-mails
+      placeholder/compartilhados. Ao ligar o CANAL-EMAIL, NÃO disparar para
+      unavailable@mail.com, naotem@, n@, nao@, naosei@, nem para o e-mail da
+      própria loja (oticachillibeanspf@gmail.com). Sugestão: no import, marcar
+      local-parts placeholder e e-mails repetidos por >=3 clientes como
+      "não-entregável" e excluí-los do canal (a função is_placeholder_email já
+      está pronta e testada). Padrão RD Station/Salesforce: campo "e-mail
+      verificado" + supressão automática de bounces/placeholders.
+  [ ] DADOS-5 (dedup de disparo): clientes que compartilham telefone (23 grupos)
+      ou e-mail real (contas-família) devem receber UMA mensagem por canal, não
+      uma por cliente. Antes de cada campanha, deduplicar por telefone/e-mail
+      normalizado (phone_dup_groups/email_dup_groups já prontos e testados).
+      Evita 40 envios WhatsApp + 109 e-mails redundantes por campanha.
+  [ ] DADOS-6 (investigar números-loja): o número com 11 clientes e os de 5/4/3
+      provavelmente são o telefone da própria loja usado como fallback no
+      cadastro. Verificar e, se confirmado, limpá-los para não poluir campanhas.
+
+PRÓXIMO ALVO DE RISCO ZERO (próxima noite): auditar a TABELA DE SUGESTÕES e o
+  HISTÓRICO DE CONTATO (pepper.db, via cópia — o app trava o arquivo): medir
+  quantos contatos de WhatsApp registrados foram para telefones HOJE inválidos/
+  duplicados (qualidade do que já foi disparado) e há quanto tempo a base de
+  sugestões não é renovada. Tudo somente-leitura sobre cópia do .db + métrica
+  pura testada em SQLite temporário (reusar o padrão monkeypatch de test_db.py).
+================================================================================
+
+================================================================================
+ITERAÇÃO 11 — 31/05/2026 02:04 (execução autônoma de hora em hora, janela 22h-4h)
+================================================================================
+
+CHECKLIST DA NOITE
+  [x] Janela de horário OK (02h04, dentro de 22h-4h).
+  [x] Backup "Backup 02 31 05 2026" criado e VERIFICADO (51 arquivos, 9,29 MB;
+      app.py / config.py / _auto_update.py / requirements.txt / product_map.py /
+      db.py / microvix.py com SHA-256 IDÊNTICO ao original; data/ conferido por
+      tamanho — config.json, pepper.db, produto_map.json e client_map.json OK).
+      Retenção: 10 backups no total (< 14, sem expurgo).
+  [x] Regressão ANTES: 181/181 testes OK.
+  [x] App em produção saudável ANTES e DEPOIS: HTTP 200.
+  [x] Regressão DEPOIS: 197/197 testes OK (+16 nesta noite).
+
+O QUE FOI FEITO (aditivo, risco zero — NÃO toquei o app.py em produção)
+  Executei EXATAMENTE o alvo que a Iter. 10 deixou planejado: auditoria SOMENTE-
+  LEITURA do pepper.db (lido por CÓPIA — o app trava o arquivo) cruzando o
+  histórico de contatos de volta contra a base de clientes, + métrica de
+  obsolescência das sugestões salvas. Adicionei tests/test_contact_history_audit.py
+  (16 testes — funções PURAS audit_contact_history / suggestion_ages /
+  count_stale_suggestions sobre dados sintéticos + 1 bloco de integração que
+  escreve num SQLite TEMPORÁRIO via db.Database real, com guard de mtime
+  confirmando que data/pepper.db de produção NÃO foi tocado). Total da suíte:
+  181 -> 197.
+
+ACHADO DE PRODUÇÃO (o que de fato importa desta noite)
+  O pepper.db real está PRATICAMENTE VAZIO de uso real:
+    - contact_history: 1 única linha — e é o código ÓRFÃO de teste
+      'TESTCODE999' (não é cliente da base). Ou seja, ZERO contatos reais
+      registrados em produção desde a estreia do recurso de WhatsApp.
+    - suggestions: 2 linhas ('Meta 23/05/2026', 7 dias) — dados-semente.
+
+  POR QUE ISSO É GRAVE (e não é só "tabela vazia"):
+  A trava anti-spam EXISTE e ESTÁ LIGADA no app — em app.py ~3912 o
+  was_contacted_this_month / days_since_last_contact pintam o aviso
+  "⚠️ Contatado há Xd" na lista de reativação. Mas ela chega VAZIA porque
+  registrar o contato é um 2º passo MANUAL: o vendedor abre o WhatsApp pelo
+  link (ação externa, fora do app) e SÓ DEPOIS teria que voltar, marcar a
+  caixinha "✅ Contatado" e clicar "💾 Salvar Contatos" (app.py ~3959-3966).
+  Esse 2º passo quase nunca acontece. Consequência prática: a régua de
+  recontato e a trava de "não repetir no mês" estão INERTES — o mesmo cliente
+  pode ser contatado vários dias seguidos sem o aviso aparecer. É o oposto do
+  que um CRM deveria garantir.
+
+  COMO OS CRMs CONSOLIDADOS RESOLVEM (referência para a correção):
+    - Salesforce / Dynamics: o "toque" (Activity/Task) é registrado no MOMENTO
+      do clique de enviar, não num passo separado de confirmação.
+    - RD Station: o clique no CTA já grava a interação na timeline do lead.
+    - Linx/varejo: o disparo e o log são a MESMA ação, sem etapa manual extra.
+  Ou seja: o registro do contato precisa estar ACOPLADO ao clique de enviar.
+
+  >>> NADA REQUER INTERVENÇÃO MANUAL NA EXECUÇÃO DESTA NOITE (Iter. 11). <<<
+  >>> O achado acima vira a tarefa LOG-1 abaixo (precisa decisão + alteração
+      no app.py em produção -> NÃO faço à noite). <<<
+
+NOVAS TAREFAS / OPORTUNIDADES (achado da Iter. 11 — ação/decisão sua)
+  [ ] LOG-1 (alta prioridade comercial — registro de contato ACOPLADO ao envio):
+      Hoje o log do WhatsApp depende de o vendedor voltar e marcar "✅ Contatado"
+      + "💾 Salvar" — passo que na prática não acontece (contact_history tem 0
+      contatos reais). Sem isso, a trava anti-spam e a régua de recontato ficam
+      inertes. Opções a avaliar (todas exigem mexer no app.py, que está rodando
+      -> fazer com o app PARADO, em janela controlada, com teste):
+        (a) Caminho mais limpo (padrão Salesforce/RD): registrar o toque no
+            clique de enviar. Em Streamlit o link wa.me abre externo e não dá
+            callback fácil; uma saída é trocar o LinkColumn por um botão que
+            grava o contato e então abre o WhatsApp (st.link após log, ou um
+            pequeno redirecionador local que loga e dá 302 para o wa.me).
+        (b) Caminho de menor atrito imediato: botão "Marcar TODOS os exibidos
+            como enviados" + manter a caixinha — reduz de N cliques para 1.
+        (c) Pré-marcar a caixinha "✅ Contatado" quando o link foi aberto na
+            sessão (heurística), deixando o vendedor só confirmar no Salvar.
+      Recomendação: (a) é o certo a longo prazo; (b) é o ganho rápido de baixo
+      risco para ESTA semana. As funções de auditoria
+      (audit_contact_history / suggestion_ages) já estão prontas e testadas para
+      medir o efeito assim que o log começar a encher.
+  [ ] LOG-2 (higiene — código órfão no histórico): remover a linha de teste
+      'TESTCODE999' do contact_history de produção (é lixo de teste; some sozinho
+      na prática, mas convém limpar para não sujar relatórios futuros). Tarefa de
+      1 minuto: DELETE FROM contact_history WHERE codigo='TESTCODE999'; (com o
+      app parado, ou via o próprio app se houver tela; faço sob sua autorização).
+
+PRÓXIMO ALVO DE RISCO ZERO (próxima noite): com a auditoria do pepper.db
+  encerrada (e o achado real = log vazio, virou LOG-1), o próximo alvo offline e
+  decisão-relevante é cruzar a JANELA de reativação (J1..J5) com a alcançabilidade
+  por canal: para cada janela de dias-sem-comprar, quantos clientes daquela faixa
+  NÃO têm WhatsApp (e seriam recuperados só pelo CANAL-EMAIL). Isso dimensiona,
+  por janela, o ganho concreto do e-mail — métrica pura sobre client_map sintético
+  + leitura somente-leitura da base real, sem tocar o app. (O cruzamento com
+  SEGMENTO RFM real continua bloqueado: depende do df_retorno que vem LIVE da API
+  Microvix, ainda com SSL falhando à noite — usar o análogo offline por janela.)
+================================================================================
+================================================================================
+ITERACAO 12 - 31/05/2026 03:04 (execucao automatica horaria, janela 22h-04h OK)
+================================================================================
+
+BACKUP: "Backup 03 31 05 2026" criado e verificado (52 arquivos, 9,30 MB).
+  SHA-256 confere em app.py, config.py, _auto_update.py, requirements.txt,
+  modules/db.py, modules/product_map.py, api/microvix.py. data/ confere por
+  tamanho (config.json 1463, pepper.db 16384, produto_map.json 8.732.839,
+  client_map.json 465.751).
+REGRESSAO: 197 -> 211 testes (+14), todos PASSAM. App HTTP 200 antes e depois.
+  client_map.json de producao intacto (mtime 27/05 21:38, guard confere).
+
+ALVO DA NOITE (offline, zero-risco, somente leitura sobre producao):
+  O alvo planejado (janela de reativacao J1..J5 x canal) foi CONFIRMADO como
+  nao-computavel offline: client_map nao tem data de ultima compra; recencia
+  depende do df_retorno VIVO do Microvix (SSL bloqueado a noite). Pivot para o
+  analogo offline mais relevante: TEMPO DE BASE via campo cliente_desde
+  (100% preenchido, DD/MM/AAAA) x alcance por canal.
+
+ACHADO PRINCIPAL >>> DADOS-7: CARIMBO DE IMPORTACAO sobrescreveu cliente_desde
+  1.060 clientes (58% de TODA a base de 1.825) tem cliente_desde = 15/05/2026,
+  UMA unica data. Nao e aquisicao real - e a data em que um lote foi importado,
+  apagando a data verdadeira de cadastro. Consequencias:
+   (a) Integridade: qualquer analise de tempo de base / fidelidade / mensagem
+       "cliente ha X anos" esta ERRADA para a maioria da base.
+   (b) EXPLICA o misterio da Iter 8 (WhatsApp so 41,5% da base): o lote de
+       15/05 tem ~7,2% de telefone e ~94% de e-mail (origem rica em e-mail e
+       pobre em telefone - provavel export de NF-e / e-commerce). Os clientes
+       "nativos" de PDV tem ~99% de WhatsApp. O lote puxou o alcance para baixo.
+   (c) Reforca o CANAL-EMAIL por novo angulo: o segmento MAIOR e mais novo so
+       e alcancavel por e-mail. Sem canal de e-mail, 58% da base fica fora do
+       unico canal de saida ativo hoje.
+
+  ALCANCE POR COORTE DE TEMPO DE BASE (producao, 31/05):
+    COORTE              N      WA%   EMAIL%  COMBIN%  MORTOS
+    0-90d (novissimo) 1142     7,2%   94,0%   94,0%     68
+    90d-1ano           355    99,4%   98,3%   99,7%      1
+    1-3 anos           222    99,5%   99,5%  100,0%      0
+    3-7 anos            37   100,0%  100,0%  100,0%      0
+    7+ anos             69    92,8%   89,9%   95,7%      3
+  (WA = telefone normalizavel; EMAIL = formato valido E nao-placeholder;
+   MORTOS = sem nenhum canal de contato.)
+
+ENTREGAVEL DE CODIGO (puramente aditivo, nao toca app.py nem dados):
+  tests/test_tenure_cohort.py (+14 testes) - funcoes puras parse_cliente_desde,
+  tenure_days, tenure_cohort, cohort_reach_report, detect_bulk_import_stamp,
+  sobre base SINTETICA + guard de mtime. Guarda o contrato para que uma futura
+  correcao do import (preservar a data real) seja deliberada.
+
+--------------------------------------------------------------------------------
+NOVAS TAREFAS PARA INTERVENCAO MANUAL (executar de dia):
+--------------------------------------------------------------------------------
+[ ] DADOS-7 (ALTA): Corrigir a rotina de importacao para NAO sobrescrever
+    cliente_desde com a data de import. 1.060 clientes (58%) estao com
+    15/05/2026 carimbado. Acao: (1) re-importar preservando a data real de
+    cadastro do cliente vinda da origem (Microvix campo de cadastro / NF-e
+    primeira compra); (2) se a origem nao tiver a data, deixar VAZIO em vez de
+    carimbar a data de import (carimbo falso e pior que ausencia). Ate la,
+    NENHUMA mensagem do tipo "cliente ha X anos" deve usar cliente_desde.
+[ ] DADOS-7b (MEDIA): Investigar a ORIGEM do lote de 15/05 (1.060 clientes,
+    ~7% telefone / ~94% e-mail). Se for export de NF-e/e-commerce, planejar
+    enriquecimento de TELEFONE (ex: cruzar com cadastro Microvix por CPF) para
+    elevar o alcance de WhatsApp desse segmento, que hoje e ~7%.
+[ ] CANAL-EMAIL (reforco): este achado adiciona um 3o argumento ao caso ja
+    aberto - 58% da base (a fatia mais nova) so e alcancavel por e-mail hoje.
+
+OBS: itens das iteracoes anteriores (LOG-1/LOG-2, DADOS-1..6, CANAL-EMAIL,
+CATALOGO-1/2, UX-2, P0 humano de rotacao de token/cert) seguem PENDENTES -
+ver secoes acima neste mesmo arquivo. Nada exigiu intervencao manual no ato
+desta iteracao 12 (tudo aditivo e reversivel).
+################################################################################
+ITERACAO 13 - 31/05/2026 22:04 (run automatico horario, ciclo noturno 22h-04h)
+################################################################################
+
+ROTINA DE SEGURANCA (sempre executada):
+  - Janela horaria: 22h04 -> DENTRO de 22h-04h. OK, prosseguiu.
+  - Backup "Backup 22 31 05 2026" criado e VERIFICADO (53 arquivos, 9,5MB).
+    SHA-256 confere: app.py, config.py, _auto_update.py, requirements.txt,
+    modules/product_map.py, modules/db.py, api/microvix.py. data/ conferida por
+    tamanho (config.json/produto_map/client_map/pepper.db todos batem; pepper.db
+    fica travado pelo app em execucao). 12 backups na pasta (< 14, sem expurgo).
+  - Regressao de testes: 211 -> 222 (+11). App HTTP 200 antes e depois.
+  - client_map.json de producao NAO tocado (guard de mtime confirma).
+
+ALVO ZERO-RISCO DESTA NOITE (planejado na iteracao 12):
+  Auditoria SOMENTE-LEITURA do ALCANCE GEOGRAFICO (uf/cidade, ambos offline) -
+  onde se concentram os "MORTOS" (sem nenhum canal) e o lote 15/05 sem telefone,
+  para dimensionar lacunas de contactabilidade por TERRITORIO de captador.
+
+ACHADO PRINCIPAL (GEO-1, a manchete da noite):
+  O WhatsApp - UNICO canal ativo de reativacao/aniversario - e na pratica um
+  canal QUASE EXCLUSIVO DE SAO PAULO. Alcance de WhatsApp por UF (top, producao):
+    UF    TOTAL   WA%    EMAIL-VALIDO%   MORTOS(sem canal)
+    SP    1057   70,4%      98,8%         9 (0,9%)
+    MG     155    2,6%      98,7%         2 (1,3%)
+    BA      63    1,6%     100,0%         0
+    RJ      62    1,6%      98,4%         1 (1,6%)
+    DF      51    7,8%      90,2%         2 (3,9%)
+    PR      51    0,0%     100,0%         0
+    GO      45    2,2%     100,0%         0
+    PA      41    0,0%     100,0%         0
+    SC      40    0,0%      95,0%         2 (5,0%)
+    MT      39    0,0%     100,0%         0
+    PE      30    0,0%     100,0%         0
+    RS      28    0,0%     100,0%         0
+  Leitura: fora de SP, a base e alcancavel SOMENTE por e-mail. Um captador ou
+  vendedor de QUALQUER praca fora de SP nao consegue usar a ferramenta de
+  reativacao por WhatsApp para praticamente todo o seu territorio.
+
+CAUSA-RAIZ (conecta com DADOS-7 da iteracao 12):
+  O lote de import de 15/05/2026 (1.060 clientes = 58% da base) e e-mail-rico /
+  telefone-pobre e esta espalhado por TODAS as UFs fora de SP. 1.059 desses
+  clientes nao tem telefone normalizavel. Eles formam ~100% das bases de
+  MG/BA/RJ/PR/GO/PA/SC/MT/PE/RS, derrubando o WhatsApp dessas pracas a ~0%.
+  As pracas "nativas" de PDV (concentradas em SP) e que sustentam o WhatsApp.
+  Distribuicao do lote sem telefone: SP 306, MG 151, BA 62, RJ 60, PR 51,
+  DF 47, GO 44, PA 41, SC 39, MT 39 (restante pulverizado).
+
+ACHADO-2 (confirma Iter-9/10 com lente geografica):
+  MORTOS (sem NENHUM canal: nem WhatsApp nem e-mail VALIDO) = 18/1825 = 1,0%.
+  O e-mail e o canal quase-universal. Em % os mortos se concentram em pracas
+  pequenas: SC 5,0%, RN 4,3%, DF 3,9% - bolsoes a sanear, nao um problema de
+  massa. Top cidades mortas: Sao Paulo/SP (3), (sem cidade)/SP (3), e o restante
+  pulverizado (1 cada) em Porto Ferreira, Rio de Janeiro, Brasilia, Guarulhos,
+  Natal, Juiz de Fora, Divinopolis, Lages.
+
+IMPLICACAO COMERCIAL (dinamica de oticas - captadores/vendedores/gerentes):
+  A reativacao por WhatsApp e uma alavanca SP-only hoje. Para dar ferramenta de
+  relacionamento aos captadores/vendedores fora de SP, CANAL-EMAIL deixa de ser
+  "nice to have" e vira PRE-REQUISITO de cobertura territorial. Em CRMs
+  consolidados (Salesforce/Dynamics/RD/Linx) o painel do gerente mostra cobertura
+  por canal e por praca; aqui o painel deveria sinalizar quais UFs estao "sem
+  canal de WhatsApp" para o gerente priorizar enriquecimento ou e-mail.
+
+ENTREGAVEL DE CODIGO (puramente aditivo, nao toca app.py nem dados):
+  tests/test_geo_reach.py (+11 testes) - funcoes puras is_valid_email e
+  geo_reach_report (alcance por UF, mortos por praca, UF que concentra o
+  WhatsApp) sobre base SINTETICA + guard de mtime. Guarda o contrato do achado
+  GEO-1 e da trava preventiva de DDD na lente geografica.
+
+--------------------------------------------------------------------------------
+NOVAS TAREFAS PARA INTERVENCAO MANUAL (executar de dia):
+--------------------------------------------------------------------------------
+[ ] GEO-1 (ALTA, comercial): Tratar a reativacao por WhatsApp como cobertura
+    SP-only no estado atual. Acoes: (1) no painel do gerente, exibir alcance de
+    canal por UF (quais pracas estao sem WhatsApp) para priorizar; (2) acelerar
+    CANAL-EMAIL como canal de cobertura para todo o territorio fora de SP;
+    (3) para captadores fora de SP, deixar claro que a fila de WhatsApp estara
+    vazia ate o enriquecimento de telefone (ver DADOS-7b) - hoje a ferramenta
+    "nao funciona" para eles sem que se saiba o porque.
+[ ] GEO-2 (BAIXA): Sanear os 18 MORTOS (sem canal nenhum) - bolsao maior em SP
+    (9) e maiores % em SC/RN/DF. Pedir telefone OU e-mail valido no proximo
+    contato presencial. Lista exportavel pode ser gerada a partir de
+    geo_reach_report (clientes com whatsapp=0 e email-invalido).
+
+OBS: itens das iteracoes anteriores (GEO via DADOS-7/7b, LOG-1/LOG-2,
+DADOS-1..6, CANAL-EMAIL, CATALOGO-1/2, UX-2, P0 humano de rotacao token/cert)
+seguem PENDENTES - ver secoes acima neste mesmo arquivo. Nada exigiu intervencao
+manual no ato desta iteracao 13 (tudo aditivo e reversivel).
+
+================================================================================
+ITERACAO 14 - 31/05/2026 23:04 (run automatico de hora em hora, janela 22h-04h)
+================================================================================
+JANELA: OK (23h04). Backup "Backup 23 31 05 2026" criado e verificado
+(54 arquivos, 9.32 MB; app.py/config.py/_auto_update.py/requirements.txt/
+modules\db.py/product_map.py/api\microvix.py SHA-256 conferem; data/ por
+tamanho - config.json/pepper.db/client_map.json/produto_map.json iguais).
+Regressao: 222/222 OK antes -> 234/234 OK depois (+12). App HTTP 200 antes e
+depois. client_map.json de PRODUCAO intocado (mtime 27/05 21:38, guard).
+
+ALVO (planejado na Iter 13): cruzar UF x LOTE-DE-IMPORTACAO (15/05) e ranquear
+as pracas por ROI de enriquecimento telefonico. Auditoria SOMENTE-LEITURA da
+base de producao (1.825 clientes).
+
+ACHADO PRINCIPAL (UF-1): 24 das 27 UFs sao "PURO-LOTE" - 100% dos clientes
+vieram do import de 15/05/2026 e ha ZERO clientes nativos de PDV; nessas pracas
+o WhatsApp e ~0%. So SP e realmente mista (750 nativos + 307 do lote, 70% WA);
+RJ/MG/BA/DF tem 1-4 nativos apenas (WA ~2-8%). Confirma e detalha o GEO-1: fora
+de SP, a base inteira de cada praca e um lote sem telefone.
+
+ROI DE ENRIQUECIMENTO TELEFONICO (clientes do lote 15/05 SEM telefone
+normalizavel, por UF - cada um destrava 1 alcance de WhatsApp novo):
+   UF    sem fone  % da praca
+   SP      306       29%   (praca que JA tem operacao de WhatsApp)
+   MG      151       97%
+   BA       62       98%
+   RJ       60       97%
+   PR       51      100%
+   DF       47       92%
+   GO       44       98%
+   PA       41      100%
+   SC       39       98%
+   MT       39      100%
+   PE       30      100%
+   RS       28      100%
+   RN       23      100%
+   CE       18       95%
+   ES/PI    17 cada 100%
+   (demais UFs: AL 15, MA 13, MS 12, TO 11, PB 10, RO 7, AC 5, AM 5, AP 4,
+    SE 3, RR 1)
+   TOTAL recuperavel por enriquecimento de telefone: 1.059 clientes.
+
+LEITURA DE ROI / RECOMENDACAO:
+  - Enriquecer SO o lote de SP (306) e o passo mais BARATO (praca que ja tem
+    operacao de WhatsApp), mas NAO abre territorio novo.
+  - Para dar QUALQUER fila de WhatsApp aos captadores/vendedores FORA de SP, e
+    preciso enriquecer as pracas puro-lote; o ranking por volume prioriza onde
+    cada real de enriquecimento alcanca mais clientes: MG(151) > BA(62) >
+    RJ(60) > PR(51) > DF(47) > GO(44) > PA(41).
+  - Combinado com CANAL-EMAIL (que cobre ~94% desse lote HOJE), a sequencia
+    racional e: (1) ligar CANAL-EMAIL para cobrir o territorio ja; (2)
+    enriquecer telefone por ordem de ROI para reativar o WhatsApp praca a praca.
+
+ENTREGAVEL DE CODIGO (puramente aditivo, nao toca app.py nem dados):
+  tests/test_uf_batch_roi.py (+12 testes) - funcoes puras is_batch_client e
+  uf_batch_roi_report (lote vs nativo, flag puro-lote, batch_sem_fone, ranking
+  de ROI por UF) sobre base SINTETICA + guard de mtime. Guarda o contrato do
+  achado UF-1 e protege contra regressao caso o import passe a preservar o
+  cliente_desde real (ver DADOS-7).
+
+--------------------------------------------------------------------------------
+NOVAS TAREFAS PARA INTERVENCAO MANUAL (executar de dia):
+--------------------------------------------------------------------------------
+[ ] UF-1 (ALTA, comercial/dados): Usar o ranking de ROI acima para planejar o
+    enriquecimento de telefone praca a praca. Acoes: (1) priorizar MG/BA/RJ/PR/
+    DF/GO/PA (maior volume de clientes do lote sem telefone); (2) no painel do
+    gerente, marcar cada praca como "PURO-LOTE" (sem nativos de PDV) para que o
+    captador/vendedor saiba que a fila de WhatsApp daquele territorio so existira
+    apos o enriquecimento; (3) cruzar com a origem do lote de 15/05 (ver
+    DADOS-7b) - se for export de NF-e/e-commerce, o telefone pode estar na nota
+    e ser recuperavel via CPF<->Microvix em massa, e nao 1 a 1.
+
+OBS: itens das iteracoes anteriores (GEO-1/GEO-2, DADOS-7/7b, LOG-1/LOG-2,
+DADOS-1..6, CANAL-EMAIL, CATALOGO-1/2, UX-2, P0 humano de rotacao token/cert)
+seguem PENDENTES - ver secoes acima neste mesmo arquivo. Nada exigiu intervencao
+manual no ato desta iteracao 14 (tudo aditivo e reversivel).
+
+================================================================================
+ITERACAO 15 - 01/06/2026 00:04 (novo ciclo de noite; run automatico horario)
+================================================================================
+Janela OK (00h04, dentro de 22h-04h). Backup "Backup 00 01 06 2026"
+criado e VERIFICADO (55 arquivos, 9,33 MB; app.py + config.py + _auto_update.py
++ requirements.txt + modules/db.py + modules/product_map.py + api/microvix.py
+todos com SHA-256 IDENTICO ao vivo; pasta data/ conferida por tamanho - pepper.db
+fica travado pelo app em execucao). Retencao: 14 backups (no limite, sem purga
+nesta run; a proxima run podera' purgar o mais antigo). Regressao 234 -> 248
+testes (+14), TODOS PASSAM. App HTTP 200 antes e depois. client_map.json de
+producao intocado (mtime 27/05 21:38, guard confirmou).
+
+ALVO ZERO-RISCO DESTA NOITE (planejado na Iter-14): auditar a NORMALIZACAO do
+campo `cidade` antes de construir o painel por cidade para gerente/captador -
+acento/caixa divergentes ("Sao Paulo" vs "Sao Paulo", "Ceilandia" vs
+"Ceilandia") dividiriam a mesma praca em varias linhas. Varredura SOMENTE-LEITURA
+da base de producao (1.825 clientes).
+
+ACHADO CIDADE-NORM (manchete - e' uma BOA noticia, rara nesta serie):
+  A higiene de `cidade` e' BOA. 389 grafias cruas distintas colapsam em apenas
+  383 cidades canonicas (MAIUSCULA + sem acento + espacos normalizados). So' 6
+  grupos fragmentam em mais de uma variante, somando apenas 7 registros "stray"
+  (a minoria a recolher):
+     - PORTO FERREIRA      : "Porto Ferreira"(678) | stray "Porto ferreira"(1)
+     - BRASILIA            : "Brasilia"[acent](45) | stray "Brasilia"(2, s/acento)
+     - SANTA RITA P.QUATRO : "...do Passa Quatro"(9)| stray "...Do Passa Quatro"(1)
+     - CAMPOS DO JORDAO    : "Campos do Jordao"(4)  | stray "Campos Do Jordao"(1)
+     - FEIRA DE SANTANA    : "Feira De Santana"(3)  | stray "Feira de Santana"(1)
+     - CEILANDIA           : "Ceilandia"(1)         | stray "Ceilandia"[acent](1)
+  13 clientes tem cidade VAZIA (bucket "(sem cidade)").
+  CONCLUSAO: o painel por cidade pode ser construido com SEGURANCA. Basta uma
+  fina camada de normalizacao na EXIBICAO (norm_city: tira acento, MAIUSCULA,
+  colapsa espacos), ou recolher 7 registros - NAO precisa migracao em massa.
+  Observacao de exibicao: alguns dominantes tem caixa "errada" de preposicao
+  ("Feira De Santana", "Santa Rita Do Passa Quatro") - a normalizacao de
+  EXIBICAO deveria minusculizar de/do/da para ficar no padrao brasileiro.
+
+ACHADO-2 (revalida a licao da Iter-11 - o "?" e' artefato de CONSOLE, nao dado):
+  O console do PowerShell mostrou "Bras?lia"/"Jord?o" durante a varredura, mas a
+  checagem por CODEPOINT deu 0 (zero) ocorrencias de U+FFFD (replacement char)
+  em cidade, nome OU email. O arquivo e' UTF-8 valido; os acentos estao corretos.
+  A fragmentacao acima e' acento-vs-sem-acento e caixa, NAO corrupcao. Confirma
+  de novo: validar CONTEUDO (codepoint), nunca a tela. Tambem RE-CONFIRMA o
+  fechamento da Iter-10: ZERO mojibake em nomes (a hipotese "Gusm?o" segue morta,
+  nao re-investigar).
+
+ACHADO-3 (ENTREGA o backlog GEO-2 da Iter-13 - lista de MORTOS por praca):
+  Os 18 MORTOS (sem WhatsApp normalizavel E sem e-mail valido) = 1,0% da base,
+  agora com praca exata para o captador sanear 1 a 1:
+     SP: (sem cidade) 3, Sao Paulo 3, Porto Ferreira 1, Guarulhos 1,
+         Sertaozinho 1 .................................... 9
+     DF: Brasilia 1, (sem cidade) 1 ....................... 2
+     SC: (sem cidade) 1, Lages 1 .......................... 2
+     MG: Juiz de Fora 1, Divinopolis 1 ................... 2
+     RJ: Rio de Janeiro 1 | RN: Natal 1 | AC: (sem cidade) 1
+  NOTA: 5 dos 18 nem cidade tem - sanear cidade junto com o canal.
+
+ENTREGAVEL DE CODIGO (puramente aditivo, nao toca app.py nem dados):
+  tests/test_city_normalization.py (+14 testes) - funcoes puras norm_city,
+  city_dashboard_report (fragmentacao: cruas vs canonicas, grupos, stray) e
+  mortos_by_praca (entrega GEO-2) sobre base SINTETICA + guard de mtime que
+  falha se a suite tocar o client_map.json de producao.
+
+LICAO DESTA ITERACAO: nem todo alvo precisa render uma "manchete grave" - aqui o
+achado e' que a base esta' LIMPA o bastante para o painel por cidade, o que
+DE-RISCA construir essa feature (a Iter-13/14 pediam um painel por UF/cidade).
+Saber que NAO ha' divida tecnica num campo e' tao acionavel quanto achar uma:
+evita gastar esforco "consertando" o que ja' esta' bom. E o "?" do console
+voltou a enganar - so' o codepoint decide.
+
+--------------------------------------------------------------------------------
+NOVAS TAREFAS PARA INTERVENCAO MANUAL (executar de dia):
+--------------------------------------------------------------------------------
+[ ] CIDADE-NORM (BAIXA, dados/UX): ao construir o painel por cidade, aplicar
+    norm_city na chave de agrupamento (ja' pronta e testada em
+    tests/test_city_normalization.py) para nao dividir a mesma praca; e
+    opcionalmente recolher os 7 registros stray + padronizar caixa de
+    preposicao (de/do/da) na exibicao. Risco baixissimo, ganho de clareza.
+[ ] GEO-2 (MEDIA, comercial - ENTREGUE a lista): usar a lista de 18 MORTOS por
+    praca acima para o captador sanear (buscar telefone/email valido). 5 deles
+    nem cidade tem - completar cadastro. mortos_by_praca() exporta a lista.
+
+OBS: itens das iteracoes anteriores (UF-1, GEO-1, DADOS-7/7b, LOG-1/LOG-2,
+DADOS-1..6, CANAL-EMAIL, CATALOGO-1/2, UX-2, P0 humano de rotacao token/cert)
+seguem PENDENTES - ver secoes acima neste mesmo arquivo. O arquivo de misfire
+diurno _RELATORIO_EXECUCAO_PENDENTE.txt continua na pasta (o auto-classificador
+nega minha exclusao por nao ter sido eu a cria-lo) - pode ser apagado pelo
+usuario. Nada exigiu intervencao manual no ato desta iteracao 15 (tudo aditivo
+e reversivel).
+
+================================================================================
+ITERACAO 16 - 01/06/2026 01:04 (run automatico horario)
+================================================================================
+Janela OK (01h04, dentro de 22h-04h). PRIMEIRA ACAO desta run: resolvi a
+pendencia da Iter-15 -> consegui ANEXAR o conteudo de _PENDENTE_APPEND_ITER15
+ao relatorio unico (o lock do OneDrive ja' tinha liberado) e APAGUEI o arquivo
+pendente. O relatorio agora esta' integro e continuo.
+
+Backup "Backup 01 01 06 2026" criado e VERIFICADO (56 arquivos, 9,35 MB;
+app.py + config.py + _auto_update.py + requirements.txt + modules/db.py +
+modules/product_map.py + api/microvix.py todos com SHA-256 IDENTICO ao vivo;
+pasta data/ conferida por tamanho - inclusive pepper.db 16.384 bytes igual).
+RETENCAO: tentei purgar o backup mais antigo para manter 14 (havia 15), mas o
+classificador de seguranca NEGOU a exclusao (a tarefa autoriza CRIAR backup, nao
+apagar backups antigos). Deixei os 15 e registrei a limpeza como tarefa manual
+(ver lista). Regressao 248 -> 267 testes (+19), TODOS PASSAM. App HTTP 200 antes
+e depois. client_map.json de producao intocado (mtime 27/05 21:38, guard).
+
+ENTREGAVEL DESTA NOITE (mudanca de estrategia: alem de auditar, CONSTRUIR algo
+util e zero-risco). Apos 13 iteracoes seguidas de testes/auditoria, o valor
+marginal de "mais um teste" caiu. Entao avancei a MAIOR alavanca de negocio ja'
+fechada com numeros reais nas Iters 8-14 - o CANAL-EMAIL - construindo a CAMADA
+DE PREPARACAO da campanha de e-mail, de forma PURA e zero-risco:
+
+  NOVO modules/email_campaign.py (puro, SEM SMTP/credenciais/IO/rede; NAO e'
+  importado por app.py -> liga-lo e' um passo explicito com o app parado, por
+  isso nao afeta o app em producao). Funcoes:
+    - is_valid_email / email_local / email_domain / normalize_email /
+      is_placeholder_email (mesma semantica dos auditores das Iters 9/10);
+    - build_recipient_list(cmap, shared_threshold=3): monta a lista de
+      destinatarios ENTREGAVEIS aplicando as licoes ja' aprendidas -
+      (1) so' formato valido, (2) descarta PLACEHOLDERs ("naotem@..."),
+      (3) descarta e-mails COMPARTILHADOS por >=3 clientes (loja/vendedor),
+      (4) DEDUPLICA por endereco (1 envio por caixa, determinístico pelo codigo);
+    - render_email(...): assunto + corpo reaproveitando marketing.format_message
+      (mesmo motor de variaveis {nome}/{categoria}/{data}/{dias} do WhatsApp ->
+      mensagem consistente entre canais; usa o template de reativacao ja' validado).
+  NOVO tests/test_email_campaign.py (+19 testes): funcoes puras + 1 run
+  SOMENTE-LEITURA sobre a base de producao + guard de mtime.
+
+NUMERO REAL DE PRODUCAO (a manchete acionavel desta noite):
+  Sobre os 1.825 clientes, a lista ENTREGAVEL de uma campanha de e-mail de
+  reativacao tem 1.664 destinatarios unicos:
+     base ................................ 1.825
+     com e-mail de formato valido ........ 1.799
+     (-) placeholders suprimidos .........    56  ("naotem@", "n@", etc.)
+     (-) compartilhados suprimidos .......    51  (e-mail da loja/vendedor, >=3)
+     (-) deduplicados (mesmo endereco) ...    28
+     = ENTREGAVEIS .......................  1.664  caixas unicas
+  Ou seja: ligando o CANAL-EMAIL hoje, da' para alcancar 1.664 clientes por
+  e-mail de forma limpa (sem disparo duplicado, sem cair em caixa da loja),
+  contra os 757 alcancaveis por WhatsApp. Isto reforca e quantifica, do lado da
+  EXECUCAO (nao so' do alcance teorico), tudo o que as Iters 8-14 vinham pedindo.
+
+LICAO DESTA ITERACAO: o proprio modulo "se auto-validou" num teste meu mal
+escrito - usei "x@y.com" como endereco de teste e o build_recipient_list
+suprimiu, porque "x" e' justamente um marcador placeholder (regex x+). O teste
+falhou, mas pelo motivo CERTO: a supressao funciona. Troquei o dado de teste
+("casa@y.com") e passou. Licao dupla: (a) quando um teste falha, conferir se nao
+e' o DADO de teste que esta' errado antes de "consertar" o codigo; (b) construir
+algo util e zero-risco (modulo puro nao-importado pelo app) e' tao seguro quanto
+escrever mais um teste - e entrega capacidade real, alinhado ao pedido da tarefa
+de "fazer atualizacoes relevantes no aplicativo", nao so' cobertura.
+
+--------------------------------------------------------------------------------
+NOVAS TAREFAS PARA INTERVENCAO MANUAL (executar de dia):
+--------------------------------------------------------------------------------
+[ ] CANAL-EMAIL-WIRE (ALTA, comercial/tecnico - nucleo ja' PRONTO e TESTADO):
+    para ATIVAR o canal de e-mail (1.664 destinatarios entregaveis hoje), falta
+    so' a camada de TRANSPORTE, que exige DECISAO + credenciais e portanto e'
+    manual: (1) escolher provedor de envio (SMTP corporativo / SendGrid / Amazon
+    SES / Resend) e guardar a credencial no COFRE SEGURO (modules.secure_store),
+    NUNCA em config.json/codigo; (2) adicionar pagina/aba "Campanha de E-mail"
+    no app (com o app PARADO) chamando email_campaign.build_recipient_list +
+    render_email; (3) respeitar opt-out LGPD na hora do envio (ver tarefa 2.1);
+    (4) registrar o envio no pepper.db (resolve tambem o LOG-1: log acoplado ao
+    disparo). O nucleo puro/testado ja' existe em modules/email_campaign.py.
+[ ] BACKUP-RETENCAO (BAIXA, manutencao): ha' 15 backups na pasta "the builder"
+    (~140 MB). A purga automatica do mais antigo foi NEGADA pelo classificador
+    (a tarefa nao autoriza apagar backups). Apagar manualmente os mais antigos
+    se quiser limitar o uso de disco (sugestao: manter os ~14 mais recentes).
+    O mais antigo hoje e' "Backup 22 29 05 2026".
+
+OBS: itens anteriores seguem PENDENTES (UF-1, GEO-1/2, DADOS-1..7/7b, LOG-1/2,
+CANAL-EMAIL[agora com nucleo pronto], CATALOGO-1/2, CIDADE-NORM, UX-2, P0 humano
+de rotacao token/cert). O arquivo de misfire diurno _RELATORIO_EXECUCAO_PENDENTE
+.txt continua na pasta (auto-classificador nega minha exclusao por nao te-lo
+criado) - pode ser apagado pelo usuario. Nada exigiu intervencao manual no ato
+desta iteracao 16 (entregavel aditivo, puro e reversivel).
+
+================================================================================
+ITERACAO 17 - 01/06/2026 02:04 (execucao automatica horaria, janela 22h-04h OK)
+================================================================================
+
+BACKUP: "Backup 02 01 06 2026" criado e verificado (58 arquivos, 9,36 MB).
+  SHA-256 conferido (MATCH) em: app.py, config.py, _auto_update.py,
+  requirements.txt, modules/product_map.py, modules/db.py,
+  modules/email_campaign.py, api/microvix.py. data/ conferido por tamanho:
+  config.json (1463), pepper.db (16384), produto_map.json (8732839),
+  client_map.json (465751) - todos batem.
+  Retencao: 16 backups (BACKUP-RETENCAO segue pendente - classificador nega DELETE).
+
+REGRESSAO: 267 -> 281 testes (+14). App HTTP 200 antes e depois.
+  client_map.json de producao intocado (mtime 27/05 21:38:45, guard confirma).
+  produto_map.json intocado (29/05 12:47).
+
+O QUE FOI FEITO (mudanca SEGURA, ADITIVA, NAO importada pelo app):
+  Apos a virada de estrategia da Iter 16 (construir, nao so testar), esta noite
+  ATAQUEI A LACUNA DA PERSONA GERENTE: em 16 iteracoes todo entregavel foi
+  voltado ao VENDEDOR (alcance/disparo). A inteligencia territorial das Iter 8-15
+  (GEO-1, UF-1, GEO-2, CIDADE-NORM) estava PRESA dentro de arquivos de TESTE -
+  o app (e portanto o gerente) nao conseguia importar nem exibir.
+
+  NOVO modulo PURO  modules/manager_coverage.py
+    Consolida num unico ponto importavel a logica ja validada que vivia espalhada
+    em test_geo_reach.py + test_uf_batch_roi.py + test_city_normalization.py:
+      - manager_coverage_report(cmap, default_ddd, stamp): UMA passada sobre a base
+        devolve, por UF, {total, wa, email, mortos, batch, nativo, batch_sem_fone,
+        pct_wa, pct_email, pct_mortos, puro_lote, status, cidades} + agregados de
+        base (mortos, roi_total, wa_top_uf/share, ufs_puro_lote, cidades_canonicas)
+        + roi_ranking (praças por ROI de enriquecimento telefonico) + uf_ordenado.
+      - mortos_list(cmap): entrega a lista nominal dos "mortos" (sem WhatsApp nem
+        e-mail valido) por praca, ordenada por UF/cidade/nome -> realiza o backlog
+        GEO-2 (saneamento 1 a 1).
+      - status por UF pensado pro gerente bater o olho: "WHATSAPP OK",
+        "WHATSAPP CRITICO", "PURO-LOTE / SO E-MAIL", "SEM CANAL".
+    Reusa normalize_phone (modules.marketing). SEM IO/rede/credenciais - recebe o
+    cmap ja carregado. NAO e importado pelo app.py -> zero risco ao app rodando.
+
+  NOVO  tests/test_manager_coverage.py (+14 testes): contrato puro sobre base
+    sintetica + 1 leitura SOMENTE-LEITURA da base real + guard de mtime.
+
+NUMERO REAL DE PRODUCAO (1.825 clientes, client_map 27/05):
+  >>> wa_alcance=757 | email_alcance=1799 | mortos=18 | roi_total=1059
+  >>> wa_top_uf = SP detendo 98,3% de TODO o alcance de WhatsApp da base
+      (744 de 757). Esta e a forma mais contundente do achado GEO-1: nao e so que
+      "SP tem 70% de WA" - e que praticamente TODA a capacidade de WhatsApp da
+      empresa esta concentrada numa unica UF. Qualquer captador/vendedor fora de
+      SP tem fila de reativacao por WhatsApp essencialmente VAZIA.
+  >>> ufs_puro_lote=18 (definicao estrita: a praca so tem clientes do lote 15/05,
+      zero nativos de PDV). NOTA DE RECONCILIACAO: a Iter 14 citou "24 UFs
+      puro-lote"; o modulo consolidado, pela definicao estrita (qualquer cliente
+      com cliente_desde != 15/05 - inclusive vazio/"-" - conta como nativo),
+      reporta 18. A diferenca (6 UFs) sao pracas que tem >=1 cliente com
+      cliente_desde diferente de 15/05 (em branco ou outra data). 18 e o numero
+      corrente, testado e internamente consistente.
+  Todos os demais numeros CRUZAM-VALIDAM achados anteriores: mortos=18 (Iter
+  13/15), roi_total=1059 (Iter 14), email=1799 (Iter 9), wa=757 (Iter 8).
+
+POR QUE ISSO IMPORTA / PROXIMO PASSO DE NEGOCIO:
+  O nucleo PURO da pagina "Cobertura (Gerente)" agora EXISTE e esta testado.
+  Falta so a casca de UI: uma futura pagina no app.py chamaria
+  manager_coverage_report(load_clients(), default_ddd=...) e renderizaria a tabela
+  por UF (com o status colorido), a lista de mortos e o ranking de ROI. Isso da ao
+  GERENTE, pela primeira vez, a visao de cobertura por praca - e deixa explicito
+  pro vendedor de fora de SP POR QUE a fila de WhatsApp dele esta vazia (a praca e
+  puro-lote, telefone-pobre) ate o enriquecimento telefonico / o CANAL-EMAIL.
+
+LICAO DESTA ITERACAO:
+  (a) Um teste meu falhou (ufs_puro_lote 2 != 1) e - aplicando a licao da Iter 16 -
+      conferi PRIMEIRO se o dado do teste estava errado antes de "consertar" o
+      codigo: estava. Na minha base sintetica, BA tinha 1 unico cliente, do lote e
+      sem nativo => corretamente puro_lote=True; logo eram 2 pracas puro-lote
+      (MG+BA), nao 1. O codigo estava certo; ajustei a EXPECTATIVA do teste.
+      (BA fica com status "SEM CANAL" pois e tambem 'morta' - o status checa
+      mortos==total antes de puro-lote; as duas marcacoes coexistem de proposito.)
+  (b) Consolidar logica que vivia em arquivos de TESTE para um modulo importavel e
+      tao seguro quanto escrever outro teste (puro, nao importado pelo app), mas
+      transforma 8 iteracoes de achados num BLOCO DE CONSTRUCAO que o app pode usar
+      - serve melhor o pedido da tarefa de "fazer atualizacoes relevantes no app".
+
+NADA EXIGIU INTERVENCAO MANUAL NESTA EXECUCAO.
+
+PROXIMO ALVO ZERO-RISCO (proxima execucao):
+  Opcao A: construir a casca de UI da pagina "Cobertura (Gerente)" - mas isso TOCA
+    app.py e exige o app PARADO -> deve ir para tarefa de intervencao manual
+    (GERENTE-PANEL-WIRE), nao execucao noturna autonoma.
+  Opcao B (zero-risco autonomo): modulo PURO de deduplicacao/supressao de disparos
+    de WhatsApp (LOG-1/DADOS-5/DADOS-6) - o analogo do email_campaign.py para o
+    canal WhatsApp: build_whatsapp_recipient_list que dedup por telefone
+    normalizado, suprime numero-loja-fallback (grupo de 11 da Iter 10) e respeita
+    a trava mensal. Modulo nao importado + testes. Recomendo a Opcao B autonoma e
+    deixar a Opcao A como tarefa manual logada.
+
+--------------------------------------------------------------------------------
+NOVAS TAREFAS MANUAIS LOGADAS NESTA ITERACAO (executar de dia, com o app parado):
+  [ ] GERENTE-PANEL-WIRE: criar pagina "Cobertura (Gerente)" no app.py que chama
+      manager_coverage.manager_coverage_report(load_clients(), default_ddd=cfg) e
+      renderiza: (1) tabela por UF com coluna de status colorido, (2) ranking de
+      ROI de enriquecimento telefonico, (3) lista de mortos (mortos_list) com botao
+      de exportar CSV para o captador sanear. Modulo pronto e testado; falta a UI.
+      Exige app parado (edicao de app.py). Valor: primeira visao de cobertura
+      territorial para a persona GERENTE.
+  [ ] (segue) BACKUP-RETENCAO: 16 backups acumulados (~150 MB). O classificador de
+      seguranca nega que eu apague backups antigos (a tarefa autoriza CRIAR, nao
+      apagar). Definir manualmente a politica (sugestao: manter ultimos 14) e
+      apagar os mais antigos, OU me autorizar explicitamente a purgar.
+================================================================================
+
+================================================================================
+ITERACAO 18 - 01/06/2026 03:04 (execucao automatica horaria)
+================================================================================
+
+JANELA: OK (03h04, dentro de 22h-04h).
+
+BACKUP: "Backup 03 01 06 2026" criado e verificado (55 arquivos, 9.5MB;
+  app.py/config.py/_auto_update.py/requirements.txt/product_map.py/db.py/
+  email_campaign.py/manager_coverage.py/microvix.py com SHA-256 identico ao
+  original; pasta data/ incluida). __pycache__ removido do backup.
+
+REGRESSAO: 281 -> 304 testes (+23), todos PASSAM.
+SAUDE DO APP: HTTP 200 antes e depois. client_map.json de producao intocado
+  (mtime 27/05 21:38:45, guard confirmou).
+
+O QUE FOI FEITO (zero-risco, aditivo, app NAO tocado):
+  Construido modules/whatsapp_campaign.py - o ANALOGO de email_campaign.py para
+  o canal WhatsApp (o "proximo alvo" planejado na iteracao 17). E a camada PURA
+  de preparacao da campanha de WhatsApp:
+    - build_whatsapp_recipient_list(cmap, default_ddd, store_threshold,
+      already_contacted): monta a fila de envios UTEIS aplicando, em ordem:
+        1. mantem so telefone NORMALIZAVEL (reusa marketing.normalize_phone);
+        2. SUPRIME numero de loja/fallback (telefone compartilhado por
+           >= store_threshold clientes - default 5; o grupo inteiro sai);
+        3. RESPEITA a trava mensal (remove quem ja foi contatado no mes, quando
+           o app fornecer o conjunto de codigos lido de modules.db - a consulta
+           ao banco fica FORA, a funcao continua pura);
+        4. DEDUPLICA por aparelho (1 envio por numero, mantendo o 1o cod).
+    - render_whatsapp(): link wa.me + mensagem, reaproveitando
+      marketing.make_whatsapp_link / format_message (mensagem consistente entre
+      canais, igual ao render_email).
+  SEM rede, SEM banco, SEM credenciais, SEM I/O. NAO importado por app.py ->
+  zero-risco para o app em producao (liga-lo e passo manual com o app parado).
+  Novo tests/test_whatsapp_campaign.py: 23 testes (puros sinteticos + 1 leitura
+  de producao + guard de mtime).
+
+NUMERO REAL DE PRODUCAO (manchete):
+  A fila bruta de WhatsApp = 757 clientes "alcancaveis" colapsa para 715 ENVIOS
+  UTEIS apos higiene:
+    - 16 clientes suprimidos por estarem em numero de loja/fallback
+      (grupo >= 5 no mesmo telefone - inclui o grupo de 11 achado na iter 10);
+    - 26 envios redundantes de familia removidos pela dedup por aparelho.
+  => 42 envios desperdicados (~5,5%) evitados por campanha, sem perder alcance
+     real. Quando a trava mensal for alimentada (LOG-1), o numero cai mais.
+
+POR QUE IMPORTA:
+  Fecha o lado de EXECUCAO do WhatsApp (assim como a iter 16 fechou o do e-mail):
+  o app, ao ligar, ja tem o nucleo testado que evita mandar reativacao para o
+  numero da propria loja e mandar a mesma mensagem 2-3x para a mesma familia -
+  os dois desperdicios que as iteracoes 10 e 11 mediram mas que ate agora viviam
+  so dentro de arquivos de teste. Junto com modules/email_campaign.py e
+  modules/manager_coverage.py, o Pepper agora tem os 3 nucleos puros de campanha
+  (e-mail, WhatsApp, cobertura-gerente) prontos para a UI.
+
+LICAO:
+  O "respeitar a trava mensal" so fica PURO se a consulta ao banco
+  (db.was_contacted_this_month) for feita por quem CHAMA e passada como conjunto
+  de codigos / predicado - injetar a dependencia de I/O em vez de chamar o banco
+  dentro do modulo mantem o nucleo testavel sem tocar producao a noite. Mesmo
+  padrao do already_contacted aqui e do shared_threshold no email_campaign.
+
+NADA precisou de intervencao manual nesta execucao.
+
+NOVAS TAREFAS PARA O DIA SEGUINTE (alem das ja listadas):
+  [ ] CAMPANHA-WIRE-WA: ligar build_whatsapp_recipient_list na pagina de
+      Campanhas Ativas (com o app parado) - passar already_contacted lido de
+      db (cods contatados no mes) para a trava mensal funcionar de fato; exibir
+      no painel os contadores loja_suprimidos / dedup / envios_uteis. Depende de
+      LOG-1 (acoplar o log do contato ao envio) para a trava nao chegar vazia.
+  [ ] Confirmar com o gestor o store_threshold (hoje 5): valida se grupos de 5
+      sao loja ou familia grande; investigar o numero do grupo de 11 (DADOS-6).
+
+(BACKUP-RETENCAO segue pendente - classificador nega DELETE de backups antigos;
+ ha 17 backups agora. Autorizar purga manual mantendo os ultimos 14.)
+
+
+================================================================================
+ITERACAO 19 - 02/06/2026 01:04 (novo ciclo de noite, execucao automatica horaria)
+================================================================================
+
+JANELA OK (01h04, dentro de 22h-04h).
+
+BACKUP: "Backup 01 02 06 2026" criado e verificado (64 arquivos, 9,46 MB;
+  app.py/config.py/_auto_update.py/requirements.txt/product_map.py/db.py/
+  email_campaign.py/manager_coverage.py/whatsapp_campaign.py/auth.py/funil.py +
+  api/microvix.py com SHA-256 conferido; demais por copia integral; __pycache__
+  excluido do backup). Retencao: 13 backups (o usuario ja limpou o excesso da
+  BACKUP-RETENCAO - obrigado).
+
+CONTEXTO IMPORTANTE - O USUARIO PROGRAMOU MUITO DURANTE O DIA 01/06:
+  Varios itens grandes do backlog FORAM IMPLEMENTADOS pelo usuario (app.py e
+  modules/ alterados em 01/06 entre 15h e 21h). Novos modulos detectados:
+    - modules/auth.py        -> LOGIN + PERFIS (dev/admin/supervisor/gerente/
+                                vendedor/captador) = item P1.2 do backlog. FEITO.
+    - modules/funil.py       -> registro de VISITAS / topo de funil / taxa de
+                                conversao = item P1.3 (maior valor comercial). FEITO.
+    - modules/lgpd.py        -> opt-out por cliente (prazo 24h) = item P2.1. FEITO.
+    - modules/email_queue.py + modules/email_sender.py (Brevo) -> transporte do
+                                CANAL-EMAIL (CANAL-EMAIL-WIRE). FEITO/em uso.
+    - modules/pos_venda.py   -> regua D+1/D+7/D+30/D+90 (cadencia automatica). FEITO.
+    - modules/prescricao.py  -> receita otica por cliente + validade CFO (1 ano)
+                                + alerta de vencimento (gancho de recompra). FEITO.
+  E o gestor AUTORIZOU 4 das 5 regras do CATALOGO-1 em product_map.py (modulo
+  BLOQUEADO): OC.KD/OC.TN -> OC e LV.KD/LV.TN -> LV (comentario "autorizado
+  01/06/2026" no codigo). Excelente progresso.
+
+  OBS: o app estava PARADO (HTTP 000) no momento desta execucao. Por isso a
+  verificacao de saude foi feita por py_compile (sintaxe) de app.py + todos os
+  modulos/api/tests = COMPILE OK, sem erros. Nao tentei subir o servidor para
+  nao interferir.
+
+O QUE FIZ NESTA EXECUCAO (zero-risco, aditivo - nao toquei codigo do app em
+producao, exceto atualizar testes de regressao que ja existiam):
+
+  1) RESTAUREI A REGRESSAO VERDE apos o fix do catalogo.
+     Os 3 testes de test_product_map_coverage.py que a iteracao 7 escreveu DE
+     PROPOSITO para travar o comportamento antigo (OC.KD/OC.TN/LV.KD/LV.TN
+     caindo em None) FALHARAM agora - exatamente como projetado - porque o gestor
+     autorizou as regras. Atualizei esses guardas para travar a NOVA realidade
+     autorizada (kids/teen agora categorizam) e preservei a trava do gap que
+     SOBROU. Mecanismo da iter 7 funcionou: "o teste virou a checklist do fix".
+
+  2) PROTEGI O TRABALHO NOVO DO USUARIO COM TESTES (os modulos novos vieram sem
+     cobertura). Adicionei 4 suites, 61 testes, todos isolados por tempfile +
+     guard de mtime (NENHUM arquivo de producao em data/ foi lido ou escrito -
+     confirmado: users.json mtime intacto; funil/lgpd/prescricoes.json seguem
+     inexistentes):
+       - tests/test_auth.py        (SEGURANCA): hash sha256, senha padrao do ano,
+            ensure_default_admin, authenticate (senha errada / inativo / espacos),
+            create_user (login regex 3-30, perfil invalido, duplicado),
+            change_password (limpa primeiro_acesso), update_user (allowlist de
+            campos - bloqueia alterar senha_hash/ativo por essa via), e toda a
+            HIERARQUIA de permissoes (nivel/can/is_*/perfis_criaveis_por).
+       - tests/test_lgpd.py        (COMPLIANCE): set/is/remove opt-out, prazo 24h,
+            coercao de codigo str/int, filter_optout suprime quem pediu saida,
+            arquivo corrompido -> {} (nunca quebra o envio).
+       - tests/test_prescricao.py  (NEGOCIO): save/get ultima receita, mais
+            recente primeiro, arredondamento, validade CFO, dias_para_vencer e
+            data_vencimento (incl. receita vencida -> negativo; data invalida ->
+            None), format_grau (virgula decimal, "plano" quando cilindrico=0).
+       - tests/test_funil.py       (NEGOCIO): add_visita (id, strip, mais recente
+            primeiro), get_visitas_hoje (filtra dia + vendedor), resumo_funil
+            (total/conversoes/taxa_conversao/por_resultado) + DOCUMENTACAO do bug
+            FUNIL-1 (abaixo).
+
+  REGRESSAO: 304 -> 365 testes (3 guardas atualizados + 61 novos). TODOS PASSAM.
+  Numeros de auditoria de PRODUCAO (somente-leitura) seguem estaveis:
+    email entregaveis=1664 | wa_alcance=757 envios_uteis=715 | mortos=18 |
+    wa_top_uf=SP(98,3%) | roi_total=1059.
+
+ACHADOS NOVOS (registrados como tarefa):
+
+  CATALOGO-1b: o gestor autorizou 4 das 5 regras, mas OC.ES (27 SKUs de oculos
+    solar "especial") NAO foi incluido em _PREFIX_RULES e SEGUE caindo em None.
+    Esses 27 produtos seriam DESCARTADOS numa re-importacao (import_from_df pula
+    categoria=None). Falta autorizar a regra OC.ES -> OC para fechar o gap.
+
+  FUNIL-1 (BUG LATENTE no modulo novo funil.py): resumo_funil() filtra o periodo
+    comparando datas no formato "DD/MM/AAAA" como STRING. Comparacao lexical NAO
+    e cronologica entre meses/anos -> relatorios de conversao por periodo que
+    cruzam mes/ano ficam ERRADOS (ex.: visita de 02/01/2026 some de um range que
+    comeca em 10/12/2025; visita de 30/01 entra indevidamente num range que
+    comeca em 15/06). Dentro do mesmo mes funciona. NAO corrigi porque funil.py
+    e importado pelo app -> correcao e tarefa manual (app parado). O teste
+    test_funil.py TRAVOU o comportamento atual (incorreto) de proposito; quando
+    corrigir, atualizar o teste. Fix sugerido: comparar por data ISO/real
+    (datetime.strptime) ou guardar a data tambem em campo ISO ordenavel.
+
+NOVAS TAREFAS PARA O DIA SEGUINTE (alem das ja listadas):
+  [ ] CATALOGO-1b: autorizar a regra OC.ES -> OC em modules/product_map.py
+      (modulo BLOQUEADO) para os 27 SKUs de solar especial nao serem descartados
+      na proxima re-importacao. Depois, atualizar test_product_map_coverage.py
+      (test_oculos_solar_especial_ainda_cai_em_none vira "categoriza como OC").
+  [ ] FUNIL-1: corrigir resumo_funil() para comparar datas cronologicamente
+      (nao por string DD/MM/AAAA). App parado. Depois atualizar os 2 testes em
+      TestFunilDateRangeBugConhecido (test_funil.py) para o comportamento certo.
+  [ ] SEGREDO-EMAIL: revisar email_sender.py/email_config.json - a chave Brevo
+      (brevo_api_key) deve ir para o cofre secure_store, NAO para data/ no
+      OneDrive (mesmo principio dos segredos Microvix/SEFAZ ja resolvido).
+      Verificar como esta hoje antes de expor a empresa a vazamento de API key.
+
+LICAO:
+  Quando o humano implementa de dia o que o builder vinha pedindo de noite, a
+  jogada de maior valor da noite muda de "auditar/descobrir" para "blindar o
+  codigo novo com teste" - os modulos novos vieram sem cobertura, e um deles ja
+  trazia um bug latente (FUNIL-1, comparacao de data como string) que so apareceu
+  porque escrevi o teste de periodo. Tambem: dois testes meus falharam por DADOS
+  DE TESTE errados (login "pe" tem 2 chars e o regex exige 3-30; e nao da pra
+  passar login= como kwarg de update_user) - conferir o dado do teste antes de
+  suspeitar do modulo continua valendo (licao das iters 16/17): o modulo estava
+  certo nos dois casos.
+
+NADA precisou de intervencao manual nesta execucao. Relatorio anexado via Python
+io (append, UTF-8 sem BOM) a partir do cwd - PowerShell+OneDrive nega a escrita.
+
+--------------------------------------------------------------------------------
+ITERACAO 19 - ADENDO: SEGREDO-EMAIL CONFIRMADO (achado de seguranca)
+--------------------------------------------------------------------------------
+
+CONFIRMADO por inspecao somente-leitura: data/email_config.json EXISTE na pasta
+do OneDrive e contem a CHAVE DA API DO BREVO EM TEXTO PLANO (brevo_api_key,
+"xkeysib-...", 89 chars), alem de sender_email/sender_name. A chave NAO esta no
+cofre (secure_store.SENSITIVE_KEYS = token, sefaz_cert_b64, sefaz_cert_password)
+e o email_sender.py le direto do arquivo em data/.
+
+POR QUE E GRAVE (mesma classe do P0 original de Microvix/SEFAZ):
+  Qualquer pessoa com acesso ao arquivo/OneDrive pode disparar e-mail COMO A
+  EMPRESA pelo remetente verificado (oticachillibeanspf@gmail.com) - phishing/
+  spam em nome da loja, dano de reputacao do dominio e exposicao LGPD. Uma chave
+  Brevo vazada tambem pode esgotar a cota / gerar custo.
+
+NAO CORRIGI A NOITE DE PROPOSITO: mover a chave para o cofre exige alterar
+  email_sender.py (caminho de envio em uso) com o app parado - mesma natureza da
+  migracao P0 que foi feita SOB AUTORIZACAO do usuario (iter 1.5). Fica como
+  tarefa manual de ALTA PRIORIDADE:
+
+  [ ] SEGREDO-EMAIL (ALTA): (1) revogar/rotacionar a chave Brevo atual (tratar
+      como vazada, pois esteve em texto plano no OneDrive); (2) adicionar
+      "brevo_api_key" a secure_store.SENSITIVE_KEYS e gravar a NOVA chave no
+      cofre (%LOCALAPPDATA%/Pepper); (3) ajustar email_sender.load_email_config
+      para ler a chave do cofre (fallback legado igual ao config.py); (4)
+      scrubar/zerar brevo_api_key no data/email_config.json (manter so
+      sender_email/sender_name); (5) testar envio. Fazer com o app parado.
+
+
+================================================================================
+ITERACAO 20 - 02/06/2026 02:04 (run automatica horaria, ciclo da noite 01->02/06)
+================================================================================
+
+JANELA: OK (02h04, dentro de 22h-04h).
+
+BACKUP: "Backup 02 02 06 2026" criado e verificado (45 arquivos, 9.4MB;
+  app.py/config.py/_auto_update.py/requirements.txt + modules db/product_map/
+  email_campaign/manager_coverage/whatsapp_campaign/pos_venda/email_queue/funil
+  e api/microvix com SHA-256 identico ao original; data/ conferido por tamanho:
+  config.json 1503B, pepper.db 16384B, client_map.json 465751B,
+  produto_map.json 8732839B todos iguais). __pycache__ removido do backup.
+  Retencao: 13 backups (usuario ja purgou o excesso; abaixo de 14, sem purga).
+
+SAUDE DO APP: parado (HTTP 000), como na iter 19 (o usuario controla o servidor).
+  NAO iniciei o servidor. Saude validada por py_compile de app.py + todos os
+  modules/api/tests: COMPILE OK. Regressao 365 -> 400 testes (+35), tudo verde.
+
+O QUE FOI FEITO (zero-risco / aditivo, nenhum .py de producao tocado):
+  Cobri os 2 modulos novos que ainda estavam SEM teste desde 01/06 (eram o alvo
+  planejado na iter 19): email_queue.py e pos_venda.py.
+
+  1) tests/test_email_queue.py (+16) - fila do canal Brevo. Cobre push_to_queue
+     (dedup por e-mail dentro e entre chamadas, coercao de id p/ str, ignora
+     itens sem e-mail, defaults tentativas=0/agendado_em), get_history (limite +
+     ultimos N), e process_queue com BrevoClient DUBLE injetado (mock.patch em
+     from_config -> nunca toca rede): fila vazia nao chama Brevo; Brevo nao
+     configurado marca falhas; sucesso esvazia a fila e arquiva no historico;
+     falha reenfileira enquanto tentativas<MAX_TRIES; descarta apos MAX_TRIES;
+     historico limitado a MAX_HIST (500).
+
+  2) tests/test_pos_venda.py (+19) - regua de pos-venda D+1/7/30/90. Cobre
+     _load_log/_save_log (vazio/round-trip/corrompido), a matematica de janela
+     (so agenda touchpoints FUTUROS), dedup da mesma venda (key codigo_data),
+     trava de opt-out LGPD, primeiro-nome no template, e scan_from_retorno
+     (df vazio/None, cliente recente vira novo, sem e-mail conta ja_registrado,
+     compra antiga ignorada).
+
+  ISOLAMENTO: 100% via tempfile - pos_venda._LOG, email_queue.QUEUE/HISTORY e
+  lgpd._PATH redirecionados; mtime/ausencia guard confirma que nenhum arquivo de
+  producao (email_queue.json, email_queue_history.json, pos_venda_log.json,
+  lgpd_optout.json - todos hoje inexistentes) foi criado ou tocado. Sem rede.
+
+ACHADOS REAIS (2 bugs latentes nos modulos do usuario, travados em teste
+  "BUG_*" no padrao BugConhecido do projeto p/ que o fix futuro seja deliberado):
+
+  [ ] POSVENDA-1 (MEDIA - regua de pos-venda inerte alem do D+1): em
+      register_sale_for_pos_venda, os 4 touchpoints sao enfileirados com 1
+      chamada push_to_queue([item]) POR touchpoint, TODOS com o MESMO e-mail do
+      cliente. push_to_queue dedup-a por e-mail => apenas o D+1 entra na fila;
+      D+7/D+30/D+90 sao SILENCIOSAMENTE descartados. register retorna 4
+      ("agendados") mas so 1 e-mail existe na fila. Efeito: a regua de
+      relacionamento so dispara o 1o contato; o follow-up de 7/30/90 dias nunca
+      acontece. FIX (app parado): pos-venda precisa de um caminho de enfileiramento
+      que NAO dedupe por e-mail (ex. dedup por (email, segmento/dia) ou um campo
+      "agendado_para"), ja que e legitimo enviar varios e-mails ao mesmo endereco
+      ao longo do tempo. Travado por test_BUG_POSVENDA1_*.
+
+  [ ] POSVENDA-2 (MEDIA - data brasileira ambigua mal parseada; mesma classe do
+      FUNIL-1): scan_from_retorno usa pd.to_datetime(ultima_compra,
+      errors="coerce") SEM dayfirst=True. Datas DD/MM/AAAA com dia<=12 (ex. hoje
+      02/06/2026) sao lidas como MM/DD (06/fev) e caem antes do cutoff de 90 dias
+      => o cliente RECENTE e descartado e a venda nunca entra na regua. Datas com
+      dia>12 escapam por sorte (pandas auto-detecta). FIX (app parado): passar
+      dayfirst=True (ou format="%d/%m/%Y") em scan_from_retorno. Travado por
+      test_BUG_POSVENDA2_*.
+
+  [ ] POSVENDA-3 (BAIXA/ARQUITETURA - touchpoints disparam todos de uma vez): a
+      fila (push_to_queue) nao guarda data-de-envio; process_queue (job das 02h)
+      envia TUDO que esta na fila imediatamente. O "dia" do TOUCHPOINT so e usado
+      p/ decidir se agenda e p/ rotular o segmento - nao vira uma data de disparo.
+      Logo, mesmo se POSVENDA-1 fosse corrigido, os 4 e-mails sairiam todos na
+      proxima run das 02h, nao em D+1/7/30/90. FIX (app parado): adicionar
+      "enviar_em" ao item da fila e fazer process_queue so enviar itens vencidos
+      (enviar_em <= hoje). Observacao de arquitetura; sem teste-trava ainda.
+
+SEGREDO-EMAIL (re-verificado, CONTINUA ABERTO - tarefa humana de ALTA): confirmei
+  que data/email_config.json no OneDrive AINDA tem brevo_api_key em texto plano
+  (prefixo xkeysib-..., 89 chars) e "brevo_api_key" AINDA nao esta em
+  secure_store.SENSITIVE_KEYS (= ('token','sefaz_cert_b64','sefaz_cert_password')).
+  Valor NAO impresso/redigido. Acao inalterada (ver tarefa SEGREDO-EMAIL acima).
+
+NADA precisou de intervencao manual nesta run (alem das tarefas ja logadas).
+
+LICAO: os 2 modulos novos vieram com 2 bugs latentes que SO apareceram quando
+  escrevi o teste de comportamento (regua so dispara D+1; data ambigua mal
+  parseada) - exatamente como o FUNIL-1 na iter 19. Reforca: quando o humano
+  entrega codigo de dia, o maior valor da run noturna e blindar o codigo novo
+  com testes de COMPORTAMENTO (nao so de happy-path), porque o teste de
+  comportamento e o que expoe o bug. E (padrao iter 16/17/19) quando MEU teste
+  falhou, conferi o DADO/expectativa antes do codigo: aqui o codigo estava
+  ERRADO (2 bugs reais), entao travei o comportamento atual num teste BUG_* e
+  registrei a tarefa de fix - em vez de mascarar com um teste complacente.
+
+PROXIMO ALVO ZERO-RISCO (proxima run): restam modulos novos de 01/06 sem teste
+  dedicado - email_sender.py (load/save config, _texto_para_html, BrevoClient
+  com requests mockado), prescricao validade/expiry ja coberto, mas o caminho de
+  EXPIRY-hook nao; OU cobrir o pos_venda.scan_and_register (hoje um stub que so
+  retorna {0,0}) e marcar como nao-implementado. Toda fiacao de UI
+  (GERENTE-PANEL-WIRE, CAMPANHA-WIRE-WA) e os fixes POSVENDA-1/2/3 e FUNIL-1
+  TOCAM .py de producao -> tarefas manuais com o app parado, nao run noturna.
+
+
+================================================================================
+ITERAÇÃO 21 — 02/06/2026 03:04 (execução automática horária do builder)
+================================================================================
+
+JANELA: 03h04 — dentro de 22h–04h. OK.
+
+BACKUP: "Backup 03 02 06 2026" criado e verificado.
+  - 77 arquivos, 9,52 MB. (1ª cópia trouxe o venv por engano -> 358MB/9618 arq.;
+    venv REMOVIDO do backup, voltando ao padrão histórico ~9,5MB.)
+  - SHA-256 confere em 17 arquivos-chave: app.py, config.py, _auto_update.py,
+    requirements.txt, e modules db/product_map/email_campaign/manager_coverage/
+    whatsapp_campaign/pos_venda/email_queue/email_sender/funil/prescricao/auth/
+    lgpd + api/microvix.py.
+  - data/ confere por TAMANHO (app PARADO -> pepper.db 16384B também confere):
+    client_map 465751B, produto_map 8732839B, config 1503B, users 302B,
+    email_config 270B, campaigns 1144B etc. Todos OK.
+  - Retenção: 15 backups após este (antes 14). >14 -> ver BACKUP-RETENCAO.
+
+ESTADO DO APP: PARADO (HTTP 000, como nas Iters 19/20 — o usuário controla o
+  servidor). NÃO foi iniciado. Saúde validada por py_compile de app.py + todos
+  os modules + api + tests => COMPILE OK.
+
+REGRESSÃO: 400 -> 423 testes (+23). TODOS PASSAM. Antes e depois do backup.
+  Números de produção (read-only) ESTÁVEIS, cruzando com iterações anteriores:
+    email entregáveis = 1664 | whatsapp úteis = 715 | mortos = 18 |
+    wa_alcance = 757 | SP = 98,3% do WhatsApp | roi_total = 1059 | ufs_puro_lote = 18.
+
+----------------------------------------------------------------------
+O QUE FOI FEITO (zero-risco, aditivo — NÃO tocou nenhum .py de produção)
+----------------------------------------------------------------------
+Cumprido o alvo planejado na Iter-20: cobrir o último módulo novo SEM teste.
+
+  Diagnóstico do escopo:
+   - prescricao.py JÁ estava coberto (test_prescricao.py: save/get, VENCIMENTO
+     via dias_para_vencer/data_vencimento [= o "expiry-hook" que a Iter-20 citou],
+     format_grau). Não há função de expiração adicional no módulo — o gancho de
+     alerta vive no app.py (que não toco). Nada a fazer aqui.
+   - email_sender.py era o ÚNICO módulo novo TOTALMENTE sem teste.
+
+  NOVO tests/test_email_sender.py (+23 testes, 100% isolado, ZERO rede):
+   - Config: load (inexistente->{}, corrompido->{}, roundtrip, acentos),
+     is_email_configured (só True com key E sender_email).
+   - _texto_para_html: remove links wa.me, quebra em parágrafos, envelopa
+     html + rodapé de identificação, texto vazio não quebra.
+   - BrevoClient.from_config: None se não configurado; constrói cliente;
+     sender_name default "Ótica P. Ferreira".
+   - send_email: e-mail inválido não dispara; sucesso 200/201; status de erro
+     propaga mensagem; PAYLOAD envia htmlContent (sem wa.me) + textContent
+     (com o corpo original) + header api-key; Timeout tratado; exceção genérica
+     tratada. 'requests' é MOCKADO (dublê) -> nenhuma chamada real ao Brevo.
+   - send_bulk: agrega enviados/falhas/erros corretamente.
+   - test_connection: conexão OK parseia plano; status de erro; exceção.
+
+  ISOLAMENTO/SEGURANÇA:
+   - email_sender._CFG_PATH redirecionado a tempfile durante os testes.
+   - O data/email_config.json de PRODUÇÃO (que HOJE contém a chave Brevo em
+     plaintext) NÃO foi lido nem escrito; guard de mtime confirma INTOCADO
+     (mtime 01/06 12:09:19 antes e depois da suíte completa).
+   - Nenhuma chave real carregada/impressa — testes usam "xkeysib-FAKE".
+
+  LIÇÃO (mantém Iter-16/17): 2 testes meus falharam na 1ª rodada e em AMBOS o
+  erro era no TESTE, não no código:
+   (a) esperei count("<p>")==1 para texto vazio, mas o rodapé usa <p style=...>
+       (não casa "<p>") -> o correto é 0; o código está certo.
+   (b) ao mockar o módulo 'requests' inteiro, es.requests.Timeout virou um Mock
+       e o "except requests.Timeout" do módulo quebrou (TypeError: catching
+       classes que não herdam de BaseException) -> a correção é capturar a CLASSE
+       REAL requests.Timeout ANTES do patch e injetá-la no mock. Padrão a reusar
+       sempre que mockar um módulo cujo código faz "except <modulo>.Exc".
+
+----------------------------------------------------------------------
+SEGREDO-EMAIL — RE-VERIFICADO, AINDA ABERTO (ALTA)
+----------------------------------------------------------------------
+data/email_config.json no OneDrive ainda guarda brevo_api_key em PLAINTEXT
+(xkeysib-…, 89 caracteres — valor REDIGIDO; sender oticachillibeanspf@gmail.com).
+secure_store.SENSITIVE_KEYS continua = ("token","sefaz_cert_b64",
+"sefaz_cert_password") — "brevo_api_key" NÃO está lá. email_sender.py lê direto
+de data/. Inalterado vs Iter 19/20. Tarefa humana (rotacionar a chave tratando
+como vazada -> adicionar brevo_api_key a SENSITIVE_KEYS + guardar no vault ->
+fazer email_sender ler do vault com fallback legado -> limpar o arquivo -> testar).
+
+----------------------------------------------------------------------
+COBERTURA DE TESTES — estado após Iter 21
+----------------------------------------------------------------------
+TODOS os módulos novos do usuário (01/06) agora têm teste:
+  auth, lgpd, prescricao, funil (Iter 19); email_queue, pos_venda (Iter 20);
+  email_sender (Iter 21, este). Os módulos-core do builder (email_campaign,
+  whatsapp_campaign, manager_coverage) seguem cobertos. Total 423 testes.
+
+----------------------------------------------------------------------
+BUGS LATENTES TRAVADOS (BugConhecido) AINDA ABERTOS — fix = app parado (manual)
+----------------------------------------------------------------------
+  FUNIL-1   resumo_funil compara datas como STRING DD/MM/AAAA (não cronológico).
+  POSVENDA-1 register enfileira 4 toques no mesmo e-mail -> push_to_queue dedup
+             por e-mail descarta D+7/30/90 (só D+1 sai).
+  POSVENDA-2 scan_from_retorno usa pd.to_datetime SEM dayfirst=True (DD/MM
+             ambíguo p/ dia<=12 -> mês trocado). Mesma classe de FUNIL-1.
+  POSVENDA-3 process_queue dispara a fila inteira de uma vez (toque "dia" nunca
+             vira data-de-envio) -> precisa de gating "enviar_em".
+  CATÁLOGO-1b OC.ES (27 SKUs) ainda cai para None (regra OC.ES->OC não autorizada).
+
+NADA exigiu intervenção manual NESTA execução (tudo aditivo/isolado).
+
+----------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução noturna)
+----------------------------------------------------------------------
+Cobertura de módulos novos está COMPLETA. Próximos candidatos zero-risco
+(módulo puro app-UNIMPORTED + testes, OU auditoria read-only):
+  (a) reforçar a cobertura de COMPORTAMENTO dos bugs já travados com testes de
+      regressão do FIX desejado (ex.: escrever o teste que ficará VERDE quando
+      FUNIL-1/POSVENDA-2 forem corrigidos com dayfirst/ISO — vira a checklist do
+      fix, padrão Iter-19), sem tocar o código de produção;
+  (b) módulo puro de NORMALIZAÇÃO de data DD/MM/AAAA<->ISO (parse robusto com
+      dayfirst) que FUNIL-1 e POSVENDA-2 poderão importar quando o usuário fizer
+      o fix — entrega a peça pronta e testada, sem tocar funil.py/pos_venda.py;
+  (c) auditoria read-only do produto_map para dimensionar o impacto de
+      CATÁLOGO-1b (quantos SKUs OC.ES seriam perdidos em re-import).
+TODO wiring de UI (GERENTE-PANEL-WIRE, CAMPANHA-WIRE-WA) e os fixes de bug
+TOCAM .py de produção -> tarefas manuais com o app parado, NÃO execução noturna.
+
+
+================================================================================
+ITERAÇÃO 22 — 02/06/2026 04:04 (execução autônoma horária, slot das 04h)
+================================================================================
+
+JANELA: OK (04h04, último slot válido da janela 22h–04h).
+
+BACKUP: "Backup 04 02 06 2026" criado e VERIFICADO.
+  - 78 arquivos, 9,53 MB (norma histórica; venv e __pycache__ excluídos).
+  - 17 arquivos-chave conferidos por SHA-256, 0 divergências:
+    app.py, config.py, _auto_update.py, requirements.txt,
+    modules/{db,product_map,email_campaign,manager_coverage,whatsapp_campaign,
+    pos_venda,email_queue,email_sender,funil,auth,lgpd,prescricao}.py,
+    api/microvix.py.
+  - data/ conferido por tamanho.
+  - RETENÇÃO: agora há 16 backups (>14 → ver tarefa BACKUP-RETENCAO; o
+    classificador continua negando minha exclusão; limpeza fica para o usuário).
+
+ESTADO DO APP: PARADO (HTTP 000, como nas Iters 19–21 — o usuário controla o
+servidor). NÃO iniciei o servidor. Saúde verificada por py_compile de
+app.py + modules/*.py + api/*.py + tests/*.py → COMPILE OK.
+
+REGRESSÃO: 423 → 447 testes (+24). Todos PASSAM.
+Números de produção (auditoria read-only) estáveis e cruzando com iterações
+anteriores: email entregáveis=1664, whatsapp úteis=715, mortos=18, SP=98,3%
+do WhatsApp, roi_total=1059.
+
+GUARDA DE DADOS: data/client_map.json intacto (mtime 27/05 21:38:45).
+
+--------------------------------------------------------------------------------
+O QUE FOI FEITO (zero-risco, aditivo, NÃO importado pelo app)
+--------------------------------------------------------------------------------
+Alvo planejado pela Iter-21 (opção b): construir um módulo PURO de normalização
+de datas que os fixes FUNIL-1 e POSVENDA-2 possam importar quando o usuário
+fizer a correção (app parado). O próprio run de testes desta noite reexibiu o
+sintoma vivo: "pos_venda.py:172 UserWarning: Parsing dates ... dayfirst=False".
+
+Já existem TRÊS bugs latentes da MESMA classe (datas BR como texto):
+  * FUNIL-1   (funil.py:106-108): resumo_funil filtra período comparando as
+              strings "DD/MM/AAAA" diretamente (v["data"] >= dt_ini). Comparar
+              "DD/MM/AAAA" como texto NÃO é cronológico — confirmado por inspeção.
+  * POSVENDA-2 (pos_venda.py:170): pd.to_datetime(ultima_compra) sem
+              dayfirst=True → "02/06/2026" vira 06/fev quando dia<=12. Confirmado.
+  * (mesma raiz reaparece em qualquer parse ingênuo de data DD/MM no app)
+
+ENTREGUE:
+  1) NOVO modules/dateutils.py — utilitários PUROS, STDLIB pura (sem pandas):
+       - parse_br_date(v)  -> datetime.date | None  (dia-primeiro; aceita
+         DD/MM/AAAA, DD/MM/AA c/ pivot de século, ISO AAAA-MM-DD c/ horário,
+         objetos date/datetime; placeholders "", "-", "—", "00/00/0000"... -> None;
+         nunca levanta exceção)
+       - to_iso(v)         -> "AAAA-MM-DD" | ""  (ordenável cronologicamente como
+         texto — é a peça que CORRIGE o FUNIL-1)
+       - in_range(v,ini,fim) -> bool  (predicado inclusivo, limites vazios=aberto —
+         é exatamente o que resumo_funil precisa)
+       - cmp_br(a,b), days_between(a,b), to_br(v)
+     SEM I/O, SEM rede, SEM estado global. NÃO importado pelo app (0 matches em
+     app.py/funil.py/pos_venda.py) → risco ZERO para o app em produção.
+  2) NOVO tests/test_dateutils.py (+24, todos passam) — cobre dia-primeiro,
+     ISO, pivot de 2 dígitos, placeholders, lixo, robustez; e um bloco de
+     REGRESSÃO TestFunil1Regressao que DEMONSTRA o bug de string-compare
+     "DD/MM/AAAA" e prova que to_iso/in_range o resolvem ("o teste vira o
+     checklist do fix", padrão Iter-19).
+
+NADA precisou de intervenção manual neste run.
+
+--------------------------------------------------------------------------------
+COMO LIGAR (tarefas para o usuário, com app PARADO)
+--------------------------------------------------------------------------------
+* FUNIL-1 (fix pronto p/ aplicar): em modules/funil.py, resumo_funil(), trocar
+    if dt_ini: visitas = [v for v in visitas if v.get("data","") >= dt_ini]
+    if dt_fim: visitas = [v for v in visitas if v.get("data","") <= dt_fim]
+  por:
+    from modules import dateutils as du
+    visitas = [v for v in visitas if du.in_range(v.get("data"), dt_ini, dt_fim)]
+  (mantém limites vazios = histórico todo; agora cronologicamente correto.)
+
+* POSVENDA-2 (fix pronto p/ aplicar): em modules/pos_venda.py, scan_from_retorno,
+  trocar pd.to_datetime(row.get("ultima_compra"), errors="coerce") por uso de
+    from modules import dateutils as du
+    d = du.parse_br_date(row.get("ultima_compra"))   # já é dia-primeiro e robusto
+    if d is None or d < cutoff: continue
+  (remove a dependência do pandas no parse e elimina o warning dayfirst.)
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Quando vários bugs latentes compartilham a MESMA causa-raiz (aqui: tratar data
+BR como texto), o movimento de maior alavancagem à noite não é escrever um teste
+para cada um, e sim extrair a solução correta UMA vez num módulo puro e testado
+que os fixes vão importar — assim o usuário não re-deriva a lógica (e não
+re-introduz a mesma falha) em cada ponto. Continua valendo a regra Iter-16/17:
+módulo puro app-unimported é tão seguro quanto outro teste, mas entrega
+capacidade real ("fazer atualizações relevantes no app").
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+Com dateutils.py pronto, opções: (a) escrever os testes GREEN-quando-corrigido
+de FUNIL-1 e POSVENDA-2 que passem a CHAMAR funil/pos_venda já usando dateutils
+(travam o comportamento certo, viram checklist do fix); (b) auditar read-only o
+produto_map para dimensionar a perda de SKUs do CATÁLOGO-1b (OC.ES, 27 SKUs)
+no re-import; (c) construir o helper puro de "enviar_em" (gating de data de
+envio) que POSVENDA-3 precisa, reaproveitando dateutils. Toda fiação no app.py
+e os fixes em .py de produção continuam sendo tarefas manuais com app parado.

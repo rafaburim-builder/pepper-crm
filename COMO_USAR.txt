@@ -1,0 +1,77 @@
+=============================================
+ CHILLI BEANS - Sistema de Sugestao de Compras
+ COMO USAR
+=============================================
+
+=== PRIMEIRA VEZ ===
+
+1. Certifique-se de que o Python esta instalado.
+   Se nao estiver: acesse python.org, baixe e instale
+   (marque "Add Python to PATH" durante a instalacao).
+
+2. Clique duas vezes em: Configurar.bat
+   Aguarde a instalacao (pode demorar alguns minutos).
+
+3. Clique duas vezes em: Iniciar.bat
+   O programa abrira no seu navegador automaticamente.
+
+
+=== USO DIARIO ===
+
+Clique duas vezes em: Iniciar.bat
+O programa abrira em http://localhost:8501
+
+
+=== ABAS DO PROGRAMA ===
+
+  Pirâmide de Preços
+    - Selecione o periodo (sugerido: 12 meses)
+    - Clique em "Carregar Dados"
+    - Veja a piramide atual no lado esquerdo
+    - Edite as metas no lado direito com os sliders
+    - Clique "Normalizar" para ajustar o total para 100%
+    - Clique "Salvar" para guardar a sugestao
+
+  Relatorios
+    - Selecione o periodo e categoria
+    - Clique em "Carregar"
+    - Use as abas Vendas e Compras
+    - Exporte para Excel com o botao "Exportar Excel"
+
+  Configuracoes
+    - Configure as credenciais do Microvix
+    - Ajuste as faixas de preco
+    - Teste a conexao antes de desativar o Modo Demo
+
+
+=== MODO DEMO ===
+
+O programa ja vem com o Modo Demo ativado.
+Dados ficticios sao usados para voce se familiarizar
+com o sistema sem precisar da conexao com o Microvix.
+
+Para usar dados reais:
+  1. Va em "Configuracoes"
+  2. Preencha: Nome da Empresa, CNPJ, Token
+  3. Clique "Testar Conexao"
+  4. Se der certo, desative o "Modo Demonstracao"
+  5. Clique "Salvar"
+
+
+=== DISTRIBUINDO PARA OUTRAS LOJAS ===
+
+Coloque a pasta inteira no OneDrive ou servidor.
+Em cada computador:
+  1. Instale o Python (apenas uma vez por maquina)
+  2. Execute Configurar.bat (apenas uma vez)
+  3. Use Iniciar.bat todo dia
+
+
+=== SUPORTE ===
+
+Em caso de problemas, verifique:
+  - Python instalado e no PATH
+  - Conexao com a internet (para dados reais)
+  - Credenciais do Microvix corretas
+
+=============================================

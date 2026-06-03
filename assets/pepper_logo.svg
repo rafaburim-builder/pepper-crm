@@ -1,0 +1,35 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 210">
+  <defs>
+    <linearGradient id="pepper_g1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#640000"/>
+      <stop offset="18%"  stop-color="#BF1010"/>
+      <stop offset="40%"  stop-color="#EE2E2E"/>
+      <stop offset="58%"  stop-color="#CB0F0F"/>
+      <stop offset="82%"  stop-color="#9D0707"/>
+      <stop offset="100%" stop-color="#580000"/>
+    </linearGradient>
+    <linearGradient id="pepper_g2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#194E19"/>
+      <stop offset="50%"  stop-color="#389438"/>
+      <stop offset="100%" stop-color="#194E19"/>
+    </linearGradient>
+  </defs>
+  <path d="M50 48 Q55 32 64 28 Q62 38 54 47" fill="url(#pepper_g2)" stroke="#124012" stroke-width="1.5"/>
+  <path d="M50 54 L47 36 Q50 30 53 36 Z" fill="#2B8B2B" stroke="#196019" stroke-width="0.7"/>
+  <path d="M50 54 L32 40 Q30 35 36 38 Z"  fill="#268226" stroke="#196019" stroke-width="0.7"/>
+  <path d="M50 54 L28 57 Q27 52 32 52 Z"  fill="#2B8B2B" stroke="#196019" stroke-width="0.7"/>
+  <path d="M50 54 L72 57 Q73 52 68 52 Z"  fill="#268226" stroke="#196019" stroke-width="0.7"/>
+  <path d="M50 54 L68 40 Q70 35 64 38 Z"  fill="#2B8B2B" stroke="#196019" stroke-width="0.7"/>
+  <ellipse cx="50" cy="54" rx="12" ry="5"  fill="#2D8A2D"/>
+  <ellipse cx="48" cy="52" rx="7"  ry="2.5" fill="#46BB46" opacity="0.50"/>
+  <path d="M44 54 C40 70,38 97,38 127 C38 150,43 170,50 192 C57 170,62 150,62 127 C62 97,60 70,56 54 Z"
+        fill="#360000" opacity="0.28" transform="translate(5,7)"/>
+  <path d="M44 54 C40 70,38 97,38 127 C38 150,43 170,50 192 C57 170,62 150,62 127 C62 97,60 70,56 54 Z"
+        fill="url(#pepper_g1)" stroke="#800000" stroke-width="1.2"/>
+  <path d="M41 66 C37 82,36 106,36 130 C36 149,39 165,44 178"
+        fill="none" stroke="rgba(255,140,140,0.26)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M41 68 C38 84,37 108,37 132 C37 150,40 166,45 178"
+        fill="none" stroke="rgba(255,255,255,0.50)" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="41" cy="76" rx="2.8" ry="5" fill="rgba(255,255,255,0.36)" transform="rotate(-10,41,76)"/>
+  <ellipse cx="50" cy="189" rx="4" ry="2.5" fill="rgba(255,100,100,0.48)"/>
+</svg>
