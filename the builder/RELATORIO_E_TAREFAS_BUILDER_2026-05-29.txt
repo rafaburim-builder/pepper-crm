@@ -2269,3 +2269,312 @@ produto_map para dimensionar a perda de SKUs do CATÁLOGO-1b (OC.ES, 27 SKUs)
 no re-import; (c) construir o helper puro de "enviar_em" (gating de data de
 envio) que POSVENDA-3 precisa, reaproveitando dateutils. Toda fiação no app.py
 e os fixes em .py de produção continuam sendo tarefas manuais com app parado.
+
+
+================================================================================
+ITERAÇÃO 23 — 02/06/2026 22:04 (execução autônoma horária, slot das 22h)
+================================================================================
+
+JANELA: OK (22h04, primeiro slot da janela 22h–04h).
+
+BACKUP: "Backup 22 02 06 2026" criado e VERIFICADO.
+  - 88 arquivos, 9,61 MB (venv, .git, __pycache__, .pytest_cache e a própria
+    pasta "the builder" excluídos).
+  - 8 arquivos-chave conferidos por SHA-256, 0 divergências: app.py, config.py,
+    modules/{db,funil,pos_venda,dateutils}.py, api/microvix.py, data/pepper.db.
+  - RETENÇÃO: agora há 17 backups (>14 → tarefa BACKUP-RETENCAO segue aberta; o
+    classificador continua negando minha exclusão; limpeza fica para o usuário).
+
+ESTADO DO APP: PARADO (HTTP 000 em localhost:8501 — o usuário controla o
+servidor). NÃO iniciei o servidor. Saúde verificada por py_compile de
+app.py + config.py + modules/*.py + api/*.py → COMPILE OK.
+O usuário esteve ativo hoje à noite (21h2x) migrando para nuvem: cloud_storage.py,
+familia.py, loja_config.py e _migrate_to_cloud.py foram tocados. app.py NÃO mudou
+(mtime 12:18). Por isso mantive a postura conservadora: nada que toque .py de
+produção enquanto a migração está em curso.
+
+VITÓRIA HERDADA: os fixes FUNIL-1 e POSVENDA-2 que iterações anteriores deixaram
+prontos JÁ FORAM APLICADOS em produção — funil.py importa dateutils.in_range e
+pos_venda.py importa dateutils.parse_br_date. O módulo puro dateutils.py virou
+peça viva do app. (Obs.: o docstring do dateutils ainda diz "NÃO é importado pelo
+app" — ficou desatualizado; correção trivial listada nas tarefas manuais.)
+
+REGRESSÃO: 450 → 470 testes (+20). Todos PASSAM. py_compile do módulo novo OK.
+
+
+================================================================================
+PARTE A — OS QUATRO FEEDBACKS (acesso ao app como 4 personas)
+================================================================================
+
+Base dos feedbacks: leitura do código de UI (app.py, 5.869 linhas), navegação
+principal (📊 Análise de Contexto · 📋 Relatórios · 🎯 Campanhas Ativas ·
+📣 Marketing · 🗺️ Cobertura · ⚙️ Configurações), perfis (dev/admin/supervisor/
+gerente/vendedor/captador) e os módulos de domínio (RFM, funil, pós-venda,
+price_pyramid, client_map, product_map, lgpd, campanhas e-mail/WhatsApp,
+manager_coverage, prescricao, APIs Microvix/SEFAZ).
+
+--------------------------------------------------------------------------------
+FEEDBACK 1 — VENDEDOR DE ÓTICA LEIGO (quer aprender a vender e bater meta)
+--------------------------------------------------------------------------------
+O QUE FUNCIONA (e me ajuda de verdade):
+  + "Candidatos a Contato" + RFM (Campeões / Em Risco / Hibernando) me diz A QUEM
+    ligar HOJE sem eu ter que adivinhar — é o maior ganho prático.
+  + O funil de visitas (Comprou / Volta amanhã / Saiu sem comprar) finalmente
+    captura a visita que NÃO virou venda. É o que me mostra minha conversão real.
+  + Campanhas de WhatsApp/e-mail com texto pronto: não trava por eu não saber
+    escrever a mensagem.
+  + Pós-venda automático (D+1/D+7/D+30/D+90): cliente sente que a loja lembra dele.
+
+O QUE NÃO FUNCIONA / ME TRAVA:
+  - A régua de pós-venda está QUEBRADA na prática (bug confirmado nesta noite):
+    dos 4 toques, só o D+1 entra na fila; D+7/D+30/D+90 somem. Eu acho que o
+    cliente está sendo acompanhado e não está. (Detalhe técnico na PARTE C.)
+  - Falta o "e agora?": o app me diz que o cliente está "Em Risco", mas não me dá
+    um SCRIPT de abordagem nem um próximo-passo com data. Sou leigo: preciso do
+    "ligue, diga isso, ofereça aquilo, marque retorno".
+  - Não vejo MEU placar pessoal de forma simples: quanto faltam p/ minha meta,
+    minha taxa de conversão da semana, meu ranking. Os números existem espalhados,
+    mas não num "meu dia / minha meta" de uma tela só.
+  - Muitos termos técnicos (RFM, markup, mix) sem um "?" que explique em 1 frase
+    o que fazer com aquilo.
+
+O QUE EU PEDIRIA:
+  * Uma home "MEU DIA": meta do mês + quanto falta, clientes para contatar hoje
+    (com botão WhatsApp), visitas de hoje, e 3 dicas de venda rotativas.
+  * Script de abordagem por segmento RFM (1 clique → texto sugerido + “marcar
+    retorno em X dias”).
+
+--------------------------------------------------------------------------------
+FEEDBACK 2 — DESIGNER RENOMADO (mercado brasileiro)
+--------------------------------------------------------------------------------
+PONTOS FORTES:
+  + Linguagem visual com emojis dá leitura rápida de categorias — adequado ao
+    público de loja (baixa curva de aprendizado).
+  + Uso de tabs e métricas nativas do Streamlit mantém consistência.
+
+PROBLEMAS DE DESIGN:
+  - SEM hierarquia tipográfica real: 0 usos de st.header/subheader/title em 5.869
+    linhas. Tudo compete por atenção; o olho não sabe onde pousar primeiro.
+  - Navegação por st.radio na sidebar não escala (6 áreas hoje, e crescendo);
+    falta agrupamento (Operação / Inteligência / Configuração) e ícone-âncora.
+  - Densidade: telas com muitas tabelas e selectboxes empilhados, sem respiro nem
+    cartões. Falta um padrão de "card de KPI" reaproveitável.
+  - Identidade Chilli Beans subaproveitada: a marca tem preto + pimenta vermelha
+    icônicos; o app é genérico Streamlit. Faltam paleta de tema (.streamlit/
+    config.toml), logo no topo e estados vazios ilustrados.
+  - Acessibilidade: confiar só em emoji/cor para status (⚠️ vermelho) exclui
+    daltônicos; precisa de rótulo textual junto.
+
+RECOMENDAÇÃO DE DESIGN (prioridade):
+  1. Tema de marca (config.toml: primaryColor pimenta, base dark) + logo no header.
+  2. Sistema de "cards" de KPI e seção (1 componente, reuso em todas as telas).
+  3. Hierarquia: título de página > seção > métrica; espaçamento vertical padrão.
+  4. Estados vazios com orientação ("Nenhum cliente em risco ainda — importe a
+     base em Configurações").
+
+--------------------------------------------------------------------------------
+FEEDBACK 3 — EXECUTIVO COMERCIAL/MARKETING (40 anos, premiado)
+--------------------------------------------------------------------------------
+LEITURA ESTRATÉGICA:
+  O app já tem a espinha de um CRM de varejo ótico: captação (captador), conversão
+  (vendedor/funil), retenção (RFM + pós-venda) e gestão (gerente/cobertura). Isso
+  é raro e valioso. Mas hoje ele MEDE mais do que CONDUZ.
+
+LACUNAS QUE CUSTAM RECEITA:
+  - Sem CADÊNCIA comercial obrigatória: CRM de verdade empurra a próxima ação
+    (Salesforce "Tasks/Next Step", RD Station "fluxo de cadência"). Aqui o
+    follow-up depende da memória do vendedor.
+  - Sem FUNIL DE CAPTAÇÃO externo claro p/ o captador (lead → agendou → compareceu
+    → comprou) com taxa de comparecimento. O captador é um canal caro; precisa de
+    ROI por captador, não só cobertura geográfica.
+  - Metas e gamificação fracas: ranking existe, mas não há meta individual, régua
+    de comissionamento, nem campanha-relâmpago ("dobro de pontos hoje em lentes").
+  - Atribuição de campanha → venda inexistente: disparo WhatsApp/e-mail não fecha
+    o ciclo "quem voltou e comprou depois do toque". Sem isso não se prova ROI de
+    marketing (é o que RD Station e Microvix CRM entregam).
+  - LTV/recompra por faixa (price_pyramid existe) não vira AÇÃO ("subir o cliente
+    da faixa 2 p/ 3 com oferta X").
+
+PRIORIDADE DO EXECUTIVO (onde está o dinheiro):
+  1. Consertar e ATIVAR a régua de pós-venda (retenção é o ROI mais barato).
+  2. Cadência de tarefas com "próximo passo + data" por cliente.
+  3. ROI por captador e por campanha (fechar o ciclo toque→venda).
+  4. Meta individual + painel de progresso (move comportamento diário).
+
+--------------------------------------------------------------------------------
+FEEDBACK 4 — ENGENHEIRO SÊNIOR (fintechs, CRM, segurança)
+--------------------------------------------------------------------------------
+ARQUITETURA:
+  + Boa separação em modules/ por domínio; APIs externas isoladas em api/.
+  + Cobertura de testes forte e crescente (470), com isolamento exemplar
+    (tempfiles + guard de mtime, dublês de rede). Padrão acima da média.
+  + Extração de utilitários puros (dateutils, agora queue_gating) reduz repetição
+    de regra de negócio — boa direção.
+
+RISCOS / DÍVIDA:
+  - SEGREDO EM PLAINTEXT (ALTA, ABERTO): data/email_config.json guarda
+    brevo_api_key em texto puro, sincronizado no OneDrive. secure_store.
+    SENSITIVE_KEYS = ("token","sefaz_cert_b64","sefaz_cert_password") — NÃO inclui
+    "brevo_api_key". Chave deve ser tratada como vazada (rotacionar) e movida p/ o
+    vault. Inalterado desde a Iter 19.
+  - app.py monolítico (5.869 linhas) — manutenção e revisão custosas; candidato a
+    quebrar em páginas (st pages) por área de navegação.
+  - Datas BR como texto ainda é a maior fonte de bugs de classe (FUNIL/POSVENDA);
+    dateutils mitiga onde foi ligado, mas há outros parses ingênuos (ex.:
+    pos_venda.scan_and_register usa pd.to_datetime sem dayfirst na linha ~143).
+  - Régua de pós-venda com bug de modelagem (sem "enviar_em") — ver PARTE C.
+  - Sem trilha de auditoria central de quem disparou campanha/alterou base (LGPD
+    pede rastreabilidade; hoje é parcial).
+
+RECOMENDAÇÃO TÉCNICA:
+  1. brevo_api_key → SENSITIVE_KEYS + vault + rotação (segurança primeiro).
+  2. Modelar "enviar_em" na fila e ligar queue_gating (entregue nesta noite).
+  3. Padronizar TODO parse de data via dateutils (varrer pd.to_datetime restantes).
+  4. Plano de modularização do app.py em páginas.
+
+
+================================================================================
+PARTE B — SÍNTESE + BENCHMARK CRM (Salesforce, Dynamics, RD Station, Linx Microvix)
+================================================================================
+Convergência dos 4 olhares → 3 temas, cada um com a referência de mercado:
+
+TEMA 1 — DE "MEDIR" PARA "CONDUZIR" (cadência/next-step)
+  Salesforce: cada registro tem "Next Step" + Tasks com data; nada fica órfão.
+  RD Station: fluxos de cadência automáticos por estágio.
+  → Para a ótica: cada cliente Em Risco/Hibernando gera UMA tarefa com data e
+    script; o vendedor trabalha uma fila de "para hoje", não uma tabela inerte.
+
+TEMA 2 — FECHAR O CICLO (atribuição toque → venda, ROI por canal/captador)
+  Microvix CRM / Linx: integra venda (PDV) com a ação de relacionamento.
+  Dynamics: campanha → resposta → oportunidade → receita, com ROI.
+  → Para a ótica: marcar no client_meta o "último toque" e cruzar com a próxima
+    compra do retorno Microvix → ROI por campanha e por captador.
+
+TEMA 3 — EXPERIÊNCIA QUE GUIA O LEIGO (home de papel + marca + acessibilidade)
+  RD Station/Salesforce: "home" por papel com o que fazer agora; onboarding leve.
+  → Para a ótica: home "MEU DIA" (vendedor) e "PAINEL" (gerente) + tema de marca
+    Chilli Beans + rótulos textuais junto de cor/emoji.
+
+Estes 3 temas viram o ROADMAP nas tarefas manuais (PARTE D), priorizado por
+ROI (retenção > cadência > atribuição > UX > modularização).
+
+
+================================================================================
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+================================================================================
+Alvo escolhido (opção c da Iter-22, agora com causa confirmada ao vivo): a régua
+de pós-venda está quebrada por DOIS bugs de mesma origem — a fila não sabe
+"quando enviar":
+
+  * POSVENDA-1 (email_queue.push_to_queue): dedupe só por e-mail. Os 4 toques têm
+    o MESMO e-mail → D+7/D+30/D+90 entram como duplicados e são descartados. Só o
+    D+1 sobra. CONFIRMADO por teste de regressão ao vivo (push de 4 → fila=1).
+  * POSVENDA-3 (email_queue.process_queue): dispara a fila INTEIRA por vez; sem
+    campo "enviar_em" nenhum toque respeita a data prevista.
+
+ENTREGUE (não importado pelo app → risco ZERO):
+  1) NOVO modules/queue_gating.py — STDLIB pura + dateutils, sem I/O/rede/estado:
+       - due_key(item): identidade de dedupe CORRETA (e-mail, segmento, enviar_em
+         em ISO) → os 4 toques deixam de colidir, mas re-scan da mesma venda ainda
+         deduplica. (conserta POSVENDA-1)
+       - dedupe_new(existing, new): substituto direto da dedupe de push_to_queue.
+       - is_due / partition_due(fila, today): portão por data de envio — separa
+         "vence hoje" de "fica p/ depois". (conserta POSVENDA-3)
+       - stamp_send_date(base, offset): carimba D+N "DD/MM/AAAA" p/ a régua marcar.
+       - SEND_FIELD="enviar_em"; itens legados sem o campo = "vence agora"
+         (compatível, ligar não trava fila existente).
+  2) NOVO tests/test_queue_gating.py (+20, todos passam) — cobre o helper E
+     DEMONSTRA os bugs vivos contra o email_queue real e isolado:
+       - test_bug_vivo_push_descarta_3_dos_4_toques (prova POSVENDA-1, fica
+         VERMELHO quando o fix entrar — vira o checklist do fix, padrão Iter-19);
+       - test_fix_dedupe_new_mantem_os_4 (prova que o helper resolve);
+       - partition_due segura os futuros (POSVENDA-3).
+     Isolamento: QUEUE/HISTORY → tempfiles; guard de mtime confirma produção
+     INTOCADA; nenhuma chamada de rede.
+
+NADA exigiu intervenção manual nesta execução (tudo aditivo/isolado).
+
+
+================================================================================
+PARTE D — TAREFAS PARA O USUÁRIO (exigem app PARADO ou ação humana)
+================================================================================
+Ordenado por ROI/risco. Itens [APP PARADO] tocam .py de produção; faça com o
+servidor desligado e rode `pytest tests` antes de subir.
+
+SEGURANÇA (fazer primeiro)
+[ ] SEC-1  Rotacionar a brevo_api_key (tratar como vazada — está em plaintext no
+           OneDrive em data/email_config.json) e:
+             - adicionar "brevo_api_key" a secure_store.SENSITIVE_KEYS;
+             - mover o valor p/ o vault (secure_store);
+             - email_sender.py ler do vault com fallback legado;
+             - limpar a chave do email_config.json; testar envio.
+
+RÉGUA DE PÓS-VENDA (alto ROI — peça pronta entregue nesta noite)
+[ ] PV-FIX-1 [APP PARADO] Ligar queue_gating na régua:
+      (a) pos_venda.register_sale_for_pos_venda: ao montar cada toque, setar
+          item["enviar_em"] = queue_gating.stamp_send_date(data_venda, tp["dia"]).
+      (b) email_queue.push_to_queue: trocar a dedupe por e-mail por
+          queue_gating.dedupe_new(fila, items) (mantém o resto).
+      (c) email_queue.process_queue: no início,
+            vencidos, pendentes = queue_gating.partition_due(fila)
+          processar só `vencidos`; ao final, regravar `pendentes` + os reenfileirados.
+      Depois: rodar tests/test_queue_gating.py — o teste "bug_vivo" deve passar a
+      FALHAR (sinal de que o fix entrou); ajustar/atualizar esse teste p/ a
+      nova expectativa (4 toques entram).
+[ ] PV-FIX-2 [APP PARADO] pos_venda.scan_and_register (linha ~143): trocar
+      pd.to_datetime(..., errors="coerce") por dateutils.parse_br_date (mesma
+      classe dos bugs de data já corrigidos em scan_from_retorno).
+
+QUALIDADE/DÍVIDA
+[ ] DOC-1  [APP PARADO] Atualizar o docstring de modules/dateutils.py: ele agora
+           É importado pelo app (funil.py e pos_venda.py) — remover a frase "NÃO é
+           importado pelo app".
+[ ] CAT-1b [APP PARADO] Catálogo OC.ES (27 SKUs) ainda cai para None (regra
+           OC.ES→OC não autorizada). Decidir regra e aplicar no product_map.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/" (17 hoje; manter ~14).
+           O classificador nega minha exclusão → ação manual.
+
+ROADMAP DE PRODUTO (das 4 análises + benchmark — esforço maior, planejar)
+[ ] UX-1   Home "MEU DIA" (vendedor): meta do mês + quanto falta, clientes p/
+           contatar hoje (botão WhatsApp), visitas de hoje, dicas rotativas.
+[ ] UX-2   Tema de marca Chilli Beans (.streamlit/config.toml: primaryColor
+           pimenta, base dark) + logo no header + componente "card de KPI"
+           reaproveitável + hierarquia (título/seção/métrica).
+[ ] UX-3   Rótulo textual junto de cor/emoji nos status (acessibilidade/daltônicos).
+[ ] COM-1  Cadência: cada cliente Em Risco/Hibernando gera 1 tarefa com data +
+           script de abordagem por segmento RFM (modelo Salesforce Next Step /
+           RD Station cadência).
+[ ] COM-2  ROI por captador (lead→agendou→compareceu→comprou) e por campanha
+           (cruzar último toque em client_meta com próxima compra do Microvix) —
+           fechar o ciclo toque→venda (modelo Linx Microvix / Dynamics).
+[ ] COM-3  Meta individual + painel de progresso + gamificação leve.
+[ ] ENG-1  Plano de modularização do app.py (5.869 linhas) em páginas Streamlit
+           por área de navegação.
+
+
+================================================================================
+LIÇÃO DESTA ITERAÇÃO
+================================================================================
+Confirmar a causa-raiz AO VIVO antes de construir o fix muda a entrega: em vez de
+só prever POSVENDA-1/3, escrevi um teste que EXERCITA o email_queue real e provou
+o bug (push de 4 toques → fila fica com 1). Isso transformou o helper de "talvez
+útil" em "comprovadamente necessário", e o próprio teste vira o checklist do fix
+(fica vermelho quando o conserto entrar). Mantém a regra Iter-16/17/22: módulo
+puro app-unimported + teste de regressão é tão seguro quanto outro teste, mas já
+entrega a peça do conserto pronta — sem o usuário re-derivar a lógica.
+Também: a Iter-22 entregou dateutils e o usuário JÁ ligou (FUNIL-1/POSVENDA-2 em
+produção). O padrão "entregar a peça pronta à noite, ligar de dia" está
+funcionando ciclo a ciclo.
+
+================================================================================
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+================================================================================
+(a) Helper puro de CADÊNCIA (COM-1): dada a lista RFM, gerar tarefas "próximo
+    passo + data + script por segmento" — peça que a home "MEU DIA" e a cadência
+    vão consumir, testável sem tocar UI.
+(b) Helper puro de ATRIBUIÇÃO (COM-2): cruzar "último toque" (client_meta) com a
+    próxima compra (retorno Microvix) → ROI por campanha/captador; pura, testável.
+(c) Auditoria read-only do produto_map p/ dimensionar a perda de SKUs do CAT-1b.
+Toda fiação de UI e os fixes em .py de produção seguem como tarefas manuais com
+o app parado (PARTE D).
+

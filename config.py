@@ -1,6 +1,31 @@
 import json
 import os
 
+# ── Leitura de secrets do Streamlit Cloud ────────────────────────────────────────
+# Quando o app roda no Streamlit Cloud (modo_cloud=True nos secrets), as credenciais
+# vêm de st.secrets e NÃO do config.json local (que não existe na nuvem).
+# Em modo local, st.secrets não está disponível e este bloco é ignorado silenciosamente.
+def _read_cloud_secrets() -> dict:
+    """Retorna credenciais do st.secrets se em modo cloud, {} caso contrário."""
+    try:
+        import streamlit as st
+        if not st.secrets.get("app", {}).get("modo_cloud", False):
+            return {}
+        mx   = st.secrets.get("microvix", {})
+        app  = st.secrets.get("app", {})
+        return {
+            "token":        mx.get("token", ""),
+            "cnpj":         mx.get("cnpj", ""),
+            "nome_empresa": mx.get("nome_empresa", ""),
+            "base_url":     mx.get("base_url", "https://webapi.microvix.com.br/1.0/api/integracao"),
+            "modo_demo":    app.get("modo_demo", False),
+            "_modo_cloud":  True,
+        }
+    except Exception:
+        return {}
+
+_CLOUD_SECRETS = _read_cloud_secrets()
+
 # ── Cofre de segredos fora do OneDrive (auditoria de segurança 29/05/2026) ──────
 # Importação defensiva: se falhar, o Config opera em modo legado (segredos no
 # config.json) e NADA quebra.
@@ -62,6 +87,22 @@ class Config:
             "estoque_virtual": {"LV": 0, "OC": 0, "ML": 0},
             "sug_faixas_saved": None,
         }
+
+        # ── Modo cloud: credenciais vêm do st.secrets ─────────────────────────
+        if _CLOUD_SECRETS:
+            data = dict(_defaults)
+            data.update(_CLOUD_SECRETS)
+            # Tenta carregar configurações não-sensíveis do Supabase (ex: faixas_preco)
+            try:
+                from modules.cloud_storage import load_json
+                _cfg_cloud = load_json("config_operacional.json", {})
+                for k, v in _cfg_cloud.items():
+                    if k not in ("token", "cnpj", "nome_empresa", "base_url"):
+                        data[k] = v
+            except Exception:
+                pass
+            return data
+
         if os.path.exists(_FILE):
             with open(_FILE, encoding="utf-8") as f:
                 data = json.load(f)

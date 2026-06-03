@@ -141,7 +141,7 @@ def sync_to_cloud(filename: str) -> bool:
 # Lista de arquivos que devem ser sincronizados na migração
 SYNC_FILES = [
     "client_map.json",
-    "product_map.json",
+    "produto_map.json",
     "produto_map_meta.json",
     "familias.json",
     "loja_config.json",

@@ -35,6 +35,10 @@ data/fornecedor_lentes.json
 # ── Streamlit Cloud secrets (NUNCA versionar) ──
 .streamlit/secrets.toml
 
+# ── Scripts com credenciais hardcoded (uso local apenas) ──
+_migrate_to_cloud.py
+_dados_out.txt
+
 # ── Ambiente Python ──
 venv/
 __pycache__/
