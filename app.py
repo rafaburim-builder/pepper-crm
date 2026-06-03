@@ -5908,23 +5908,34 @@ def page_profile():
     _login = _au_p.get("login", "")
     p = get_profile(_login)
 
-    st.markdown('<div class="cb-title">👤 Meu Perfil</div>', unsafe_allow_html=True)
-
-    # Avatar + status de completude
+    # ── Card de perfil centralizado ──────────────────────────────────────────
     _completo, _faltando = is_profile_complete(_login)
-    _col_av, _col_info = st.columns([1, 3], gap="large")
-    with _col_av:
-        st.markdown(get_avatar_html(_login, size=80), unsafe_allow_html=True)
-        if not _completo:
-            st.warning(f"Faltam: {', '.join(_faltando)}")
-        else:
-            st.success("✅ Perfil completo")
-
-    with _col_info:
-        st.markdown(f"**{p.get('nome_completo') or _au_p.get('nome','?')}**")
-        st.caption(f"{PERFIL_LABEL.get(_au_p.get('perfil',''), '')} · @{_login}")
-
-    st.divider()
+    _nome_exib  = p.get("nome_completo") or _au_p.get("nome", "?")
+    _perfil_exib = PERFIL_LABEL.get(_au_p.get("perfil",""), "")
+    _avatar_html = get_avatar_html(_login, size=96)
+    _badge_html  = (
+        '<span style="background:#D1FAE5;color:#065F46;font-size:.75rem;'
+        'font-weight:600;padding:4px 12px;border-radius:20px;">✅ Perfil completo</span>'
+        if _completo else
+        '<span style="background:#FEF3C7;color:#92400E;font-size:.75rem;'
+        f'font-weight:600;padding:4px 12px;border-radius:20px;">⚠️ Faltam: {", ".join(_faltando)}</span>'
+    )
+    st.markdown(f"""
+<div style="text-align:center;padding:32px 16px 24px;background:white;
+            border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.06);
+            margin-bottom:24px;">
+  <div style="display:flex;justify-content:center;margin-bottom:12px;">
+    {_avatar_html}
+  </div>
+  <div style="font-size:1.35rem;font-weight:800;color:#1C1816;margin-bottom:4px;">
+    {_nome_exib}
+  </div>
+  <div style="font-size:.82rem;color:#7A6A5A;margin-bottom:14px;">
+    {_perfil_exib} &nbsp;·&nbsp; @{_login}
+  </div>
+  {_badge_html}
+</div>
+""", unsafe_allow_html=True)
 
     # ── Helpers de formatação automática ─────────────────────────────────────
     def _fmt_cpf(raw: str) -> str:
@@ -6053,41 +6064,55 @@ def page_profile():
             st.success("✅ Dados salvos!")
             st.rerun()
 
-    # ── Avatar ────────────────────────────────────────────────────────────────
-    st.divider()
-    st.markdown("#### 🖼️ Avatar")
-    _av_tab1, _av_tab2 = st.tabs(["📷 Upload de foto", "🎨 Galeria"])
+    # ── Avatar (expander compacto) ────────────────────────────────────────────
+    with st.expander("📷 Alterar foto / avatar"):
+        _av_tab1, _av_tab2 = st.tabs(["📷 Upload de foto", "🎨 Galeria de avatares"])
 
-    with _av_tab1:
-        _foto = st.file_uploader("Selecione uma foto (JPG/PNG, máx 2MB)", type=["jpg","jpeg","png"])
-        if _foto:
-            if st.button("✅ Usar esta foto", type="primary"):
-                try:
-                    _b64 = compress_avatar(_foto.read())
-                    save_profile(_login, avatar_tipo="upload", avatar_data=_b64)
-                    st.success("Foto salva!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao processar imagem: {e}")
+        with _av_tab1:
+            st.caption("Envie uma selfie ou foto de perfil (JPG/PNG, máx 2MB)")
+            _foto = st.file_uploader("", type=["jpg","jpeg","png"], label_visibility="collapsed")
+            if _foto:
+                _fc1, _fc2 = st.columns([2,3])
+                with _fc1:
+                    st.image(_foto, width=120, caption="Pré-visualização")
+                with _fc2:
+                    st.write("")
+                    if st.button("✅ Usar esta foto", type="primary", use_container_width=True):
+                        try:
+                            _foto.seek(0)
+                            _b64 = compress_avatar(_foto.read())
+                            save_profile(_login, avatar_tipo="upload", avatar_data=_b64)
+                            st.success("Foto salva!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao processar imagem: {e}")
 
-    with _av_tab2:
-        st.caption("Escolha um avatar para representar você no sistema")
-        _cols_av = st.columns(6)
-        for _i, _av in enumerate(GALERIA_AVATARES):
-            with _cols_av[_i % 6]:
-                _ativo = p.get("avatar_data") == _av["slug"]
-                _borda = "3px solid #E84300" if _ativo else "3px solid transparent"
-                st.markdown(
-                    f'<div style="text-align:center;cursor:pointer;">'
-                    f'<div style="width:48px;height:48px;border-radius:50%;background:{_av["bg"]};'
-                    f'display:flex;align-items:center;justify-content:center;font-size:1.6rem;'
-                    f'margin:0 auto 4px;border:{_borda};">{_av["emoji"]}</div>'
-                    f'<div style="font-size:.6rem;color:#7A6A5A;">{_av["label"]}</div>'
-                    f'</div>', unsafe_allow_html=True,
-                )
-                if st.button("✓" if _ativo else "Usar", key=f"av_{_av['slug']}", use_container_width=True):
-                    save_profile(_login, avatar_tipo="galeria", avatar_data=_av["slug"])
-                    st.rerun()
+        with _av_tab2:
+            st.caption("Escolha um avatar para representar você no sistema")
+            # Grid 6 colunas
+            _cols_av = st.columns(6)
+            for _i, _av in enumerate(GALERIA_AVATARES):
+                with _cols_av[_i % 6]:
+                    _ativo = p.get("avatar_data") == _av["slug"]
+                    _borda = "3px solid #E84300" if _ativo else "2px solid #E8E0D8"
+                    _bg_sel = "rgba(232,67,0,.08)" if _ativo else "transparent"
+                    st.markdown(
+                        f'<div style="text-align:center;padding:6px 2px;border-radius:10px;'
+                        f'background:{_bg_sel};margin-bottom:4px;">'
+                        f'<div style="width:44px;height:44px;border-radius:50%;background:{_av["bg"]};'
+                        f'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
+                        f'margin:0 auto 4px;border:{_borda};">{_av["emoji"]}</div>'
+                        f'<div style="font-size:.58rem;color:#7A6A5A;line-height:1.2;">{_av["label"]}</div>'
+                        f'</div>', unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        "✓ Ativo" if _ativo else "Usar",
+                        key=f"av_{_av['slug']}",
+                        use_container_width=True,
+                        type="primary" if _ativo else "secondary",
+                    ):
+                        save_profile(_login, avatar_tipo="galeria", avatar_data=_av["slug"])
+                        st.rerun()
 
 
 # ── Onboarding: bloqueia Admin sem loja configurada ───────────────────────────
