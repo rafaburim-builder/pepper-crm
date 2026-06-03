@@ -5926,46 +5926,130 @@ def page_profile():
 
     st.divider()
 
-    # ── Formulário de dados ───────────────────────────────────────────────────
-    with st.form("form_perfil"):
-        st.markdown("#### ✏️ Dados pessoais")
-        _f1, _f2 = st.columns(2)
-        _nome   = _f1.text_input("Nome completo *", value=p.get("nome_completo",""))
-        _cpf    = _f2.text_input("CPF *",           value=p.get("cpf",""), placeholder="000.000.000-00")
-        _f3, _f4 = st.columns(2)
-        _nasc   = _f3.text_input("Data de nascimento *", value=p.get("nascimento",""), placeholder="DD/MM/AAAA")
-        _fone   = _f4.text_input("Telefone *",           value=p.get("telefone",""), placeholder="(19) 99999-9999")
-        _email  = st.text_input("E-mail *", value=p.get("email",""))
-        st.markdown("#### 📍 Endereço")
-        _end    = p.get("endereco", {})
-        _e1, _e2 = st.columns([3, 1])
-        _rua    = _e1.text_input("Rua / Avenida", value=_end.get("rua",""))
-        _num    = _e2.text_input("Número",        value=_end.get("numero",""))
-        _e3, _e4, _e5 = st.columns([2, 2, 1])
-        _bairro = _e3.text_input("Bairro",        value=_end.get("bairro",""))
-        _cidade = _e4.text_input("Cidade",        value=_end.get("cidade",""))
-        _uf     = _e5.text_input("UF",            value=_end.get("uf",""), max_chars=2)
-        _submit_p = st.form_submit_button("💾 Salvar dados", type="primary", use_container_width=True)
+    # ── Helpers de formatação automática ─────────────────────────────────────
+    def _fmt_cpf(raw: str) -> str:
+        d = "".join(c for c in raw if c.isdigit())[:11]
+        if len(d) == 11:
+            return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+        return raw
 
-    if _submit_p:
-        if not _nome.strip():
+    def _fmt_fone(raw: str) -> str:
+        d = "".join(c for c in raw if c.isdigit())
+        if len(d) == 11:
+            return f"({d[:2]}) {d[2:7]}-{d[7:]}"
+        if len(d) == 10:
+            return f"({d[:2]}) {d[2:6]}-{d[6:]}"
+        return raw
+
+    def _fmt_nome(raw: str) -> str:
+        _excl = {"de","da","do","das","dos","e","a","o","em"}
+        return " ".join(
+            w.capitalize() if w.lower() not in _excl or i == 0 else w.lower()
+            for i, w in enumerate(raw.strip().split())
+        )
+
+    def _fmt_data(raw: str) -> str:
+        d = "".join(c for c in raw if c.isdigit())[:8]
+        if len(d) == 8:
+            return f"{d[:2]}/{d[2:4]}/{d[4:]}"
+        return raw
+
+    # Callbacks — formatam ao sair do campo (on_change)
+    def _cb_nome():
+        v = st.session_state.get("pf_nome", "")
+        if v: st.session_state["pf_nome"] = _fmt_nome(v)
+    def _cb_cpf():
+        v = st.session_state.get("pf_cpf", "")
+        if v: st.session_state["pf_cpf"] = _fmt_cpf(v)
+    def _cb_fone():
+        v = st.session_state.get("pf_fone", "")
+        if v: st.session_state["pf_fone"] = _fmt_fone(v)
+    def _cb_nasc():
+        v = st.session_state.get("pf_nasc", "")
+        if v: st.session_state["pf_nasc"] = _fmt_data(v)
+    def _cb_uf():
+        v = st.session_state.get("pf_uf", "")
+        if v: st.session_state["pf_uf"] = v.upper()
+    def _cb_cidade():
+        v = st.session_state.get("pf_cidade", "")
+        if v: st.session_state["pf_cidade"] = _fmt_nome(v)
+    def _cb_bairro():
+        v = st.session_state.get("pf_bairro", "")
+        if v: st.session_state["pf_bairro"] = _fmt_nome(v)
+
+    # ── Formulário SEM st.form (evita tooltip "Press Enter to submit") ────────
+    st.markdown("#### ✏️ Dados pessoais")
+    _end = p.get("endereco", {})
+
+    # Inicializa session_state com valores salvos (só na primeira renderização)
+    for _k, _v in [
+        ("pf_nome",   p.get("nome_completo","")),
+        ("pf_cpf",    p.get("cpf","")),
+        ("pf_nasc",   p.get("nascimento","")),
+        ("pf_fone",   p.get("telefone","")),
+        ("pf_email",  p.get("email","")),
+        ("pf_rua",    _end.get("rua","")),
+        ("pf_num",    _end.get("numero","")),
+        ("pf_bairro", _end.get("bairro","")),
+        ("pf_cidade", _end.get("cidade","")),
+        ("pf_uf",     _end.get("uf","")),
+    ]:
+        if f"_pf_init_{_k}" not in st.session_state:
+            st.session_state[_k]             = _v
+            st.session_state[f"_pf_init_{_k}"] = True
+
+    _f1, _f2 = st.columns(2)
+    _f1.text_input("Nome completo *", key="pf_nome",  on_change=_cb_nome)
+    _f2.text_input("CPF *",           key="pf_cpf",   on_change=_cb_cpf,  placeholder="000.000.000-00")
+    _f3, _f4 = st.columns(2)
+    _f3.text_input("Data de nascimento *", key="pf_nasc",  on_change=_cb_nasc, placeholder="DD/MM/AAAA")
+    _f4.text_input("Telefone *",           key="pf_fone",  on_change=_cb_fone, placeholder="(19) 99999-9999")
+    st.text_input("E-mail *", key="pf_email")
+
+    st.markdown("#### 📍 Endereço")
+    _e1, _e2 = st.columns([3, 1])
+    _e1.text_input("Rua / Avenida", key="pf_rua")
+    _e2.text_input("Número",        key="pf_num")
+    _e3, _e4, _e5 = st.columns([2, 2, 1])
+    _e3.text_input("Bairro",  key="pf_bairro", on_change=_cb_bairro)
+    _e4.text_input("Cidade",  key="pf_cidade", on_change=_cb_cidade)
+    _e5.text_input("UF",      key="pf_uf",     on_change=_cb_uf, max_chars=2)
+
+    if st.button("💾 Salvar dados", type="primary", use_container_width=True, key="btn_save_profile"):
+        _nome  = st.session_state.get("pf_nome","").strip()
+        _cpf   = _fmt_cpf(st.session_state.get("pf_cpf",""))
+        _nasc  = _fmt_data(st.session_state.get("pf_nasc",""))
+        _fone  = _fmt_fone(st.session_state.get("pf_fone",""))
+        _email = st.session_state.get("pf_email","").strip().lower()
+        _rua   = st.session_state.get("pf_rua","").strip()
+        _num   = st.session_state.get("pf_num","").strip()
+        _bairro = _fmt_nome(st.session_state.get("pf_bairro",""))
+        _cidade = _fmt_nome(st.session_state.get("pf_cidade",""))
+        _uf    = st.session_state.get("pf_uf","").strip().upper()
+
+        if not _nome:
             st.error("Nome completo é obrigatório.")
         else:
             save_profile(
                 _login,
-                nome_completo = _nome.strip(),
-                cpf           = _cpf.strip(),
-                nascimento    = _nasc.strip(),
-                telefone      = _fone.strip(),
-                email         = _email.strip(),
+                nome_completo = _fmt_nome(_nome),
+                cpf           = _cpf,
+                nascimento    = _nasc,
+                telefone      = _fone,
+                email         = _email,
                 endereco      = {"rua": _rua, "numero": _num, "bairro": _bairro, "cidade": _cidade, "uf": _uf},
             )
-            # Atualiza nome no auth se necessário
-            if _nome.strip() and _nome.strip() != _au_p.get("nome",""):
+            # Atualiza nome no auth
+            _nome_fmt = _fmt_nome(_nome)
+            if _nome_fmt != _au_p.get("nome",""):
                 from modules.auth import update_user
-                update_user(_login, nome=_nome.strip())
-                _au_p["nome"] = _nome.strip()
+                update_user(_login, nome=_nome_fmt)
+                _au_p["nome"] = _nome_fmt
                 st.session_state["auth_user"] = _au_p
+            # Limpa flags de inicialização para recarregar os valores salvos
+            for _k in ["pf_nome","pf_cpf","pf_nasc","pf_fone","pf_email",
+                        "pf_rua","pf_num","pf_bairro","pf_cidade","pf_uf"]:
+                st.session_state.pop(f"_pf_init_{_k}", None)
             st.success("✅ Dados salvos!")
             st.rerun()
 
