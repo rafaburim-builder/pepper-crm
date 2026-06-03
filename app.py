@@ -431,14 +431,18 @@ if not st.session_state.autoload_done and not cfg.modo_demo and cfg.is_configure
             st.session_state.autoload_done = True
 
 # ── Dados globais de usuário + rede ───────────────────────────────────────────
-from modules.store import get_rede_do_admin
+from modules.store import get_rede_do_admin, get_lojas_do_usuario
 from modules.user_profile import get_avatar_html
 _au   = st.session_state.get("auth_user", {})
 _p    = _au.get("perfil", "")
 _rede = get_rede_do_admin(_au.get("login","")) if _p in ("admin","dev") else None
-_rede_nome   = _rede["nome"] if _rede else "Chilli Beans · CRM"
+_rede_nome    = _rede["nome"] if _rede else "Chilli Beans · CRM"
 _label_perfil = PERFIL_LABEL.get(_p, _p.capitalize())
 _avatar_html  = get_avatar_html(_au.get("login",""), size=32)
+_avatar_html_lg = get_avatar_html(_au.get("login",""), size=52)
+_nome_first   = (_au.get("nome","") or "?").split()[0]
+_lojas_user   = get_lojas_do_usuario(_au.get("login",""))
+_loja_dd      = _lojas_user[0]["nome"] if _lojas_user else (_rede_nome if _p in ("admin","dev") else "")
 
 # ── Navegação filtrada por hierarquia ─────────────────────────────────────────
 _nav = ["🌄  Bom Dia"]
@@ -463,14 +467,14 @@ if cfg.modo_demo:
 elif cfg.is_configured:
     _status_pill = '<span class="pill-live" style="font-size:.65rem;padding:2px 8px;">● AO VIVO</span>'
 
+_loja_dd_html = f'<span class="ptb-dd-loja">🏪 {_loja_dd}</span>' if _loja_dd else ""
+
 st.markdown(f"""
 <style>
 /* ── TOP BAR ──────────────────────────────────────── */
 .pepper-topbar {{
   position:      fixed;
-  top:           0;
-  left:          0;
-  right:         0;
+  top:           0; left: 0; right: 0;
   height:        54px;
   background:    white;
   border-bottom: 1px solid #EBE5DE;
@@ -483,59 +487,108 @@ st.markdown(f"""
   font-family:   'Poppins', sans-serif;
 }}
 .ptb-logo {{
+  display: flex; align-items: center; gap: 10px;
+}}
+.ptb-logo-name {{ display: flex; flex-direction: column; line-height: 1.15; }}
+.ptb-logo-name b     {{ font-size: 1.15rem; font-weight: 900; color: #E84300; letter-spacing: -.5px; }}
+.ptb-logo-name small {{ font-size: .62rem; color: #9E8E7E; }}
+
+/* ── Botão do usuário ── */
+.ptb-user-wrap {{ position: relative; }}
+.ptb-user-btn {{
   display:     flex;
   align-items: center;
-  gap:         10px;
-  text-decoration: none;
+  gap:         8px;
+  background:  none;
+  border:      none;
+  border-radius: 8px;
+  padding:     6px 10px;
+  cursor:      pointer;
+  font-family: 'Poppins', sans-serif;
+  transition:  background .15s;
+  color:       #1C1816;
 }}
-.ptb-logo-name {{
+.ptb-user-btn:hover {{ background: rgba(0,0,0,.06); }}
+.ptb-user-btn:active {{ background: rgba(0,0,0,.10); }}
+.ptb-user-name {{ font-size: .82rem; font-weight: 600; }}
+.ptb-chevron  {{ font-size: .7rem; opacity: .5; transition: transform .2s; }}
+.ptb-user-btn.open .ptb-chevron {{ transform: rotate(180deg); }}
+
+/* ── Dropdown ── */
+.ptb-dropdown {{
+  display:       none;
+  position:      absolute;
+  top:           calc(100% + 6px);
+  right:         0;
+  min-width:     230px;
+  background:    white;
+  border-radius: 12px;
+  box-shadow:    0 8px 32px rgba(0,0,0,.14);
+  border:        1px solid #EBE5DE;
+  z-index:       10001;
+  overflow:      hidden;
+  animation:     ptbFadeIn .15s ease;
+}}
+.ptb-dropdown.open {{ display: block; }}
+@keyframes ptbFadeIn {{
+  from {{ opacity: 0; transform: translateY(-6px); }}
+  to   {{ opacity: 1; transform: translateY(0); }}
+}}
+
+/* cabeçalho do dropdown */
+.ptb-dd-header {{
+  display:     flex;
+  align-items: center;
+  gap:         12px;
+  padding:     16px 16px 12px;
+}}
+.ptb-dd-info {{
   display:        flex;
   flex-direction: column;
-  line-height:    1.15;
+  gap:            2px;
+  min-width: 0;
 }}
-.ptb-logo-name b {{
-  font-size:   1.15rem;
-  font-weight: 900;
-  color:       #E84300;
-  letter-spacing: -.5px;
-}}
-.ptb-logo-name small {{
-  font-size: .62rem;
-  color:     #9E8E7E;
-}}
-.ptb-user {{
+.ptb-dd-nome  {{ font-size: .88rem; font-weight: 700; color: #1C1816; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.ptb-dd-cargo {{ font-size: .72rem; color: #7A6A5A; }}
+.ptb-dd-loja  {{ font-size: .72rem; color: #9E8E7E; }}
+
+/* separador */
+.ptb-dd-sep {{ height: 1px; background: #EBE5DE; margin: 2px 0; }}
+
+/* itens do dropdown */
+.ptb-dd-item {{
   display:     flex;
   align-items: center;
   gap:         10px;
+  width:       100%;
+  padding:     11px 16px;
+  background:  none;
+  border:      none;
+  text-align:  left;
+  font-size:   .84rem;
+  font-family: 'Poppins', sans-serif;
+  color:       #1C1816;
   cursor:      pointer;
+  transition:  background .1s;
 }}
-.ptb-user-info {{
-  text-align: right;
-  line-height: 1.2;
-}}
-.ptb-user-info b   {{ font-size: .82rem; color: #1C1816; }}
-.ptb-user-info small {{ font-size: .68rem; color: #9E8E7E; }}
+.ptb-dd-item:hover {{ background: #F8F4F0; }}
+.ptb-dd-item.danger {{ color: #DC2626; }}
+.ptb-dd-item.danger:hover {{ background: #FEF2F2; }}
 
-/* Empurra o conteúdo para baixo da top bar */
-.main .block-container {{
-  padding-top: 70px !important;
-}}
-/* Remove header padrão do Streamlit (substituto é nossa top bar) */
+/* Empurra conteúdo para baixo da top bar */
+.main .block-container {{ padding-top: 70px !important; }}
 [data-testid="stHeader"] {{ display: none !important; }}
-
-/* Sidebar: remove logo/user, mantém só navegação */
-[data-testid="stSidebar"] > div:first-child {{
-  padding-top: 70px !important;
-}}
+[data-testid="stSidebar"] > div:first-child {{ padding-top: 70px !important; }}
 
 @media (max-width: 768px) {{
-  /* No mobile a top bar já existe via mobile_ui.py — oculta esta */
   .pepper-topbar {{ display: none !important; }}
 }}
 </style>
 
-<!-- ── PEPPER TOP BAR ────────────────────────────────────── -->
+<!-- ── PEPPER TOP BAR ────────────────────────────────────────── -->
 <div class="pepper-topbar">
+
+  <!-- Logo esquerda -->
   <div class="ptb-logo">
     <span style="font-size:1.6rem;line-height:1;">🌶️</span>
     <div class="ptb-logo-name">
@@ -544,21 +597,71 @@ st.markdown(f"""
     </div>
     &nbsp;{_status_pill}
   </div>
-  <div class="ptb-user" onclick="window.location.href='?page=perfil'">
-    {_avatar_html}
-    <div class="ptb-user-info">
-      <b>{_au.get('nome','?')}</b><br>
-      <small>{_label_perfil}</small>
+
+  <!-- Botão usuário + dropdown direita -->
+  <div class="ptb-user-wrap" id="ptbWrap">
+    <button class="ptb-user-btn" id="ptbBtn" onclick="ptbToggle(event)">
+      {_avatar_html}
+      <span class="ptb-user-name">{_nome_first}</span>
+      <span class="ptb-chevron">▾</span>
+    </button>
+
+    <div class="ptb-dropdown" id="ptbMenu">
+      <!-- Cabeçalho com info do usuário -->
+      <div class="ptb-dd-header">
+        {_avatar_html_lg}
+        <div class="ptb-dd-info">
+          <span class="ptb-dd-nome">{_au.get('nome','?')}</span>
+          <span class="ptb-dd-cargo">{_label_perfil}</span>
+          {_loja_dd_html}
+        </div>
+      </div>
+      <div class="ptb-dd-sep"></div>
+
+      <!-- Ações -->
+      <button class="ptb-dd-item" onclick="ptbAction('perfil')">✏️&nbsp; Editar perfil</button>
+      <button class="ptb-dd-item" onclick="ptbAction('senha')">🔑&nbsp; Trocar senha</button>
+      <div class="ptb-dd-sep"></div>
+      <button class="ptb-dd-item danger" onclick="ptbAction('sair')">🚪&nbsp; Sair</button>
     </div>
   </div>
+
 </div>
+
+<script>
+function ptbToggle(e) {{
+  e.stopPropagation();
+  var btn  = document.getElementById('ptbBtn');
+  var menu = document.getElementById('ptbMenu');
+  var open = menu.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}}
+function ptbAction(action) {{
+  window.location.href = '?page=' + action;
+}}
+document.addEventListener('click', function(e) {{
+  if (!e.target.closest('#ptbWrap')) {{
+    var menu = document.getElementById('ptbMenu');
+    var btn  = document.getElementById('ptbBtn');
+    if (menu) {{ menu.classList.remove('open'); }}
+    if (btn)  {{ btn.classList.remove('open');  }}
+  }}
+}});
+</script>
 """, unsafe_allow_html=True)
 
-# ── Resolve abertura do perfil via top bar ────────────────────────────────────
+# ── Resolve ações do dropdown da top bar ─────────────────────────────────────
 _qp_page = st.query_params.get("page", "")
-if _qp_page == "perfil":
+if _qp_page == "sair":
+    st.query_params.clear()
+    st.session_state["auth_user"] = None
+    st.rerun()
+elif _qp_page == "perfil":
     st.query_params.clear()
     st.session_state["_show_perfil"] = True
+elif _qp_page == "senha":
+    st.query_params.clear()
+    st.session_state["_show_senha"] = True
 
 # ── Sidebar (apenas navegação, sem dados de usuário) ──────────────────────────
 with st.sidebar:
@@ -5955,6 +6058,38 @@ def page_cobertura():
 """)
 
 
+def page_change_password():
+    """Tela de troca de senha — acessível via dropdown da top bar."""
+    from modules.auth import change_password, senha_padrao
+    _au_cp = st.session_state.get("auth_user", {})
+    _sp    = senha_padrao()
+
+    st.markdown("### 🔑 Trocar senha")
+    st.caption("Escolha uma senha pessoal com pelo menos 6 caracteres.")
+
+    _cp1 = st.text_input("Nova senha", type="password", key="cp_nova")
+    _cp2 = st.text_input("Confirmar nova senha", type="password", key="cp_conf")
+
+    _bc1, _bc2 = st.columns([1, 3])
+    with _bc1:
+        if st.button("💾 Salvar", type="primary", use_container_width=True, key="btn_cp_save"):
+            if len(_cp1) < 6:
+                st.error("A senha deve ter pelo menos 6 caracteres.")
+            elif _cp1 != _cp2:
+                st.error("As senhas não coincidem.")
+            elif _cp1 == _sp:
+                st.error(f"A nova senha não pode ser igual à senha padrão `{_sp}`.")
+            else:
+                change_password(_au_cp["login"], _cp1)
+                st.success("✅ Senha alterada com sucesso!")
+                for k in ("cp_nova", "cp_conf"):
+                    st.session_state.pop(k, None)
+    with _bc2:
+        if st.button("← Voltar", key="btn_cp_back", use_container_width=True):
+            st.session_state.pop("_show_senha", None)
+            st.rerun()
+
+
 def page_profile():
     """Página de perfil do usuário — dados pessoais + avatar."""
     from modules.user_profile import (
@@ -6254,9 +6389,11 @@ if check_onboarding():
     st.stop()
 
 # ── Router Desktop ────────────────────────────────────────────────────────────
-# Perfil acessível apenas via botão da top bar (não aparece no menu)
+# Perfil e troca de senha: acessíveis apenas via dropdown da top bar
 if st.session_state.pop("_show_perfil", False):
     page_profile()
+elif st.session_state.pop("_show_senha", False):
+    page_change_password()
 elif page == "🌄  Bom Dia":
     page_bom_dia()
 elif page == "📊  Análise de Contexto":
