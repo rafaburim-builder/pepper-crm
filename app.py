@@ -555,6 +555,16 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ── Resolve index de navegação (query param do botão de perfil da top bar) ────
+_qp_page = st.query_params.get("page", "")
+_nav_default_idx = 0
+if _qp_page == "perfil":
+    try:
+        _nav_default_idx = _nav.index("👤  Meu Perfil")
+    except ValueError:
+        pass
+    st.query_params.clear()   # limpa a URL silenciosamente (não causa rerun)
+
 # ── Sidebar (apenas navegação, sem dados de usuário) ──────────────────────────
 with st.sidebar:
     st.markdown(
@@ -564,7 +574,7 @@ with st.sidebar:
         '</div>',
         unsafe_allow_html=True,
     )
-    page = st.radio("Navegação", _nav, label_visibility="collapsed")
+    page = st.radio("Navegação", _nav, index=_nav_default_idx, label_visibility="collapsed")
     st.divider()
     # Logout no rodapé da sidebar
     if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
@@ -6249,11 +6259,6 @@ if check_onboarding():
     st.stop()
 
 # ── Router Desktop ────────────────────────────────────────────────────────────
-# Clique no avatar da top bar gera ?page=perfil — redireciona para Meu Perfil
-if st.query_params.get("page") == "perfil":
-    st.query_params.clear()
-    page = "👤  Meu Perfil"
-
 if page == "🌄  Bom Dia":
     page_bom_dia()
 elif page == "📊  Análise de Contexto":
