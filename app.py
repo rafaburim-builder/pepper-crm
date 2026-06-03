@@ -433,15 +433,29 @@ if not st.session_state.autoload_done and not cfg.modo_demo and cfg.is_configure
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     # Logo + nome
+    # ── Logo + nome da rede ──────────────────────────────────────────────────
+    from modules.store import get_rede_do_admin
+    from modules.user_profile import get_avatar_html
+    _au_sb = st.session_state.get("auth_user", {})
+    _rede  = get_rede_do_admin(_au_sb.get("login", "")) if _au_sb.get("perfil") in ("admin","dev") else None
+    _rede_nome = _rede["nome"] if _rede else "Chilli Beans · CRM"
+
     col_logo, col_name = st.columns([1, 2], gap="small")
     with col_logo:
-        st.markdown(_LOGO_SVG, unsafe_allow_html=True)
+        if _rede and _rede.get("logo_b64"):
+            st.markdown(
+                f'<img src="data:image/jpeg;base64,{_rede["logo_b64"]}" '
+                f'style="width:52px;height:52px;object-fit:contain;border-radius:8px;" alt="logo">',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(_LOGO_SVG, unsafe_allow_html=True)
     with col_name:
         st.markdown(
-            '<div style="padding-top:18px;">'
-            '<span style="font-size:1.5rem;font-weight:800;letter-spacing:-1px;">Pepper</span><br>'
-            '<span style="font-size:.68rem;opacity:.85;font-weight:500;">Chilli Beans · CRM</span>'
-            '</div>',
+            f'<div style="padding-top:14px;">'
+            f'<span style="font-size:1.5rem;font-weight:800;letter-spacing:-1px;">Pepper</span><br>'
+            f'<span style="font-size:.68rem;opacity:.85;font-weight:500;">{_rede_nome}</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
@@ -456,21 +470,35 @@ with st.sidebar:
         st.markdown('<span class="pill-warn">⚠ SEM CREDENCIAIS</span>', unsafe_allow_html=True)
 
     st.divider()
-    # ── Identidade do usuário logado ─────────────────────────────────────────
+    # ── Identidade do usuário logado com avatar ───────────────────────────────
     _au = st.session_state.get("auth_user", {})
     _p  = _au.get("perfil", "")
-    _icon_perfil = PERFIL_ICON.get(_p, "👤")
+    _icon_perfil  = PERFIL_ICON.get(_p, "👤")
     _label_perfil = PERFIL_LABEL.get(_p, _p.capitalize())
+    _avatar_html  = get_avatar_html(_au.get("login", ""), size=36)
+
+    # Avatar + nome + perfil (clicável para abrir perfil)
     st.markdown(
-        f'<div style="font-size:.82rem;padding:4px 0;">'
-        f'{_icon_perfil} <b>{_au.get("nome","?")}</b><br>'
-        f'<span style="color:#7A6A5A;">{_label_perfil}</span>'
+        f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
+        f'{_avatar_html}'
+        f'<div style="font-size:.82rem;line-height:1.3;">'
+        f'<b>{_au.get("nome","?")}</b><br>'
+        f'<span style="color:#7A6A5A;font-size:.72rem;">{_label_perfil}</span>'
+        f'</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
-    if st.button("Sair", key="btn_logout", width="stretch"):
-        st.session_state["auth_user"] = None
-        st.rerun()
+
+    # Botões de ação do usuário
+    _sb1, _sb2 = st.columns(2)
+    with _sb1:
+        if st.button("👤 Perfil", key="btn_perfil", use_container_width=True):
+            st.session_state["show_profile"] = True
+            st.rerun()
+    with _sb2:
+        if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
+            st.session_state["auth_user"] = None
+            st.rerun()
 
     # ── Navegação filtrada por hierarquia ─────────────────────────────────────
     # Bom Dia: todos (captador só vê esta + funil de visitas embutido)
@@ -494,6 +522,8 @@ with st.sidebar:
     # Configurações: admin e acima
     if can(_au, "admin"):
         _nav.append("⚙️  Configurações")
+    # Meu Perfil: todos
+    _nav.append("👤  Meu Perfil")
     page = st.radio("Navegação", _nav, label_visibility="collapsed")
     st.divider()
     st.caption("v1.8.6 · Pepper · Chilli Beans TI")
@@ -5868,6 +5898,151 @@ def page_cobertura():
 """)
 
 
+def page_profile():
+    """Página de perfil do usuário — dados pessoais + avatar."""
+    from modules.user_profile import (
+        get_profile, save_profile, is_profile_complete,
+        GALERIA_AVATARES, compress_avatar, get_avatar_html,
+    )
+    _au_p = st.session_state.get("auth_user", {})
+    _login = _au_p.get("login", "")
+    p = get_profile(_login)
+
+    st.markdown('<div class="cb-title">👤 Meu Perfil</div>', unsafe_allow_html=True)
+
+    # Avatar + status de completude
+    _completo, _faltando = is_profile_complete(_login)
+    _col_av, _col_info = st.columns([1, 3], gap="large")
+    with _col_av:
+        st.markdown(get_avatar_html(_login, size=80), unsafe_allow_html=True)
+        if not _completo:
+            st.warning(f"Faltam: {', '.join(_faltando)}")
+        else:
+            st.success("✅ Perfil completo")
+
+    with _col_info:
+        st.markdown(f"**{p.get('nome_completo') or _au_p.get('nome','?')}**")
+        st.caption(f"{PERFIL_LABEL.get(_au_p.get('perfil',''), '')} · @{_login}")
+
+    st.divider()
+
+    # ── Formulário de dados ───────────────────────────────────────────────────
+    with st.form("form_perfil"):
+        st.markdown("#### ✏️ Dados pessoais")
+        _f1, _f2 = st.columns(2)
+        _nome   = _f1.text_input("Nome completo *", value=p.get("nome_completo",""))
+        _cpf    = _f2.text_input("CPF *",           value=p.get("cpf",""), placeholder="000.000.000-00")
+        _f3, _f4 = st.columns(2)
+        _nasc   = _f3.text_input("Data de nascimento *", value=p.get("nascimento",""), placeholder="DD/MM/AAAA")
+        _fone   = _f4.text_input("Telefone *",           value=p.get("telefone",""), placeholder="(19) 99999-9999")
+        _email  = st.text_input("E-mail *", value=p.get("email",""))
+        st.markdown("#### 📍 Endereço")
+        _end    = p.get("endereco", {})
+        _e1, _e2 = st.columns([3, 1])
+        _rua    = _e1.text_input("Rua / Avenida", value=_end.get("rua",""))
+        _num    = _e2.text_input("Número",        value=_end.get("numero",""))
+        _e3, _e4, _e5 = st.columns([2, 2, 1])
+        _bairro = _e3.text_input("Bairro",        value=_end.get("bairro",""))
+        _cidade = _e4.text_input("Cidade",        value=_end.get("cidade",""))
+        _uf     = _e5.text_input("UF",            value=_end.get("uf",""), max_chars=2)
+        _submit_p = st.form_submit_button("💾 Salvar dados", type="primary", use_container_width=True)
+
+    if _submit_p:
+        if not _nome.strip():
+            st.error("Nome completo é obrigatório.")
+        else:
+            save_profile(
+                _login,
+                nome_completo = _nome.strip(),
+                cpf           = _cpf.strip(),
+                nascimento    = _nasc.strip(),
+                telefone      = _fone.strip(),
+                email         = _email.strip(),
+                endereco      = {"rua": _rua, "numero": _num, "bairro": _bairro, "cidade": _cidade, "uf": _uf},
+            )
+            # Atualiza nome no auth se necessário
+            if _nome.strip() and _nome.strip() != _au_p.get("nome",""):
+                from modules.auth import update_user
+                update_user(_login, nome=_nome.strip())
+                _au_p["nome"] = _nome.strip()
+                st.session_state["auth_user"] = _au_p
+            st.success("✅ Dados salvos!")
+            st.rerun()
+
+    # ── Avatar ────────────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("#### 🖼️ Avatar")
+    _av_tab1, _av_tab2 = st.tabs(["📷 Upload de foto", "🎨 Galeria"])
+
+    with _av_tab1:
+        _foto = st.file_uploader("Selecione uma foto (JPG/PNG, máx 2MB)", type=["jpg","jpeg","png"])
+        if _foto:
+            if st.button("✅ Usar esta foto", type="primary"):
+                try:
+                    _b64 = compress_avatar(_foto.read())
+                    save_profile(_login, avatar_tipo="upload", avatar_data=_b64)
+                    st.success("Foto salva!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao processar imagem: {e}")
+
+    with _av_tab2:
+        st.caption("Escolha um avatar para representar você no sistema")
+        _cols_av = st.columns(6)
+        for _i, _av in enumerate(GALERIA_AVATARES):
+            with _cols_av[_i % 6]:
+                _ativo = p.get("avatar_data") == _av["slug"]
+                _borda = "3px solid #E84300" if _ativo else "3px solid transparent"
+                st.markdown(
+                    f'<div style="text-align:center;cursor:pointer;">'
+                    f'<div style="width:48px;height:48px;border-radius:50%;background:{_av["bg"]};'
+                    f'display:flex;align-items:center;justify-content:center;font-size:1.6rem;'
+                    f'margin:0 auto 4px;border:{_borda};">{_av["emoji"]}</div>'
+                    f'<div style="font-size:.6rem;color:#7A6A5A;">{_av["label"]}</div>'
+                    f'</div>', unsafe_allow_html=True,
+                )
+                if st.button("✓" if _ativo else "Usar", key=f"av_{_av['slug']}", use_container_width=True):
+                    save_profile(_login, avatar_tipo="galeria", avatar_data=_av["slug"])
+                    st.rerun()
+
+
+# ── Onboarding: bloqueia Admin sem loja configurada ───────────────────────────
+def check_onboarding():
+    """Verifica se o Admin precisa passar pelo wizard. Retorna True se bloqueou."""
+    _au_ob = st.session_state.get("auth_user", {})
+    if _au_ob.get("perfil") not in ("admin",):
+        return False   # Só bloqueia Admin; Dev já tem a loja de teste
+    from modules.store import get_lojas_do_usuario, get_rede_do_admin
+    lojas = get_lojas_do_usuario(_au_ob.get("login",""))
+    loja_config = next((l for l in lojas if l.get("configurada")), None)
+    if loja_config or not lojas:
+        # Se não tem nenhuma loja, deixa passar (Dev precisa criar a loja primeiro)
+        return False
+    # Tem loja não configurada → wizard
+    from modules.onboarding import STEPS, TOTAL_STEPS, get_current_step, progress_html
+    _loja = lojas[0]
+    _step = get_current_step(_loja["id"])
+    if _step > TOTAL_STEPS:
+        return False
+    # Renderiza wizard
+    st.markdown('<div class="cb-title">🎉 Bem-vindo ao Pepper!</div>', unsafe_allow_html=True)
+    st.markdown(f'Antes de continuar, vamos configurar a loja **{_loja["nome"]}** em {TOTAL_STEPS} passos.')
+    st.markdown(progress_html(_step), unsafe_allow_html=True)
+    _s = STEPS[_step - 1]
+    st.markdown(f"### {_s['icone']} Passo {_step}/{TOTAL_STEPS} — {_s['titulo']}")
+    st.caption(_s["desc"])
+    st.info(f"Complete este passo para desbloquear o restante do sistema.")
+    # Aqui cada passo renderiza seu formulário específico
+    # (implementação futura; por ora mostra botão de avançar para teste)
+    if st.button(f"✅ Concluir passo {_step} e avançar", type="primary"):
+        if _step == TOTAL_STEPS:
+            from modules.store import marcar_configurada
+            marcar_configurada(_loja["id"])
+            st.success("🎉 Loja configurada! Bem-vindo ao Pepper!")
+        st.rerun()
+    return True
+
+
 # ── Router Mobile (intercede antes do desktop) ────────────────────────────────
 _mobile_tab = st.query_params.get("tab", None)
 if _mobile_tab:
@@ -5892,6 +6067,10 @@ if _mobile_tab:
                 st.rerun()
     st.stop()   # não renderiza o layout desktop
 
+# ── Onboarding check (Admin sem loja configurada) ─────────────────────────────
+if check_onboarding():
+    st.stop()
+
 # ── Router Desktop ────────────────────────────────────────────────────────────
 if page == "🌄  Bom Dia":
     page_bom_dia()
@@ -5907,3 +6086,5 @@ elif page == "🗺️  Cobertura":
     page_cobertura()
 elif page == "⚙️  Configurações":
     page_settings()
+elif page == "👤  Meu Perfil":
+    page_profile()
