@@ -454,7 +454,6 @@ if can(_au, "gerente") and st.session_state.client_map:
     _nav.append("🗺️  Cobertura")
 if can(_au, "admin"):
     _nav.append("⚙️  Configurações")
-_nav.append("👤  Meu Perfil")
 
 # ── TOP BAR (logo esquerda · nav central · user direita) ──────────────────────
 # Injetada antes da sidebar para aparecer no topo em ambas as versões.
@@ -555,15 +554,11 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Resolve index de navegação (query param do botão de perfil da top bar) ────
+# ── Resolve abertura do perfil via top bar ────────────────────────────────────
 _qp_page = st.query_params.get("page", "")
-_nav_default_idx = 0
 if _qp_page == "perfil":
-    try:
-        _nav_default_idx = _nav.index("👤  Meu Perfil")
-    except ValueError:
-        pass
-    st.query_params.clear()   # limpa a URL silenciosamente (não causa rerun)
+    st.query_params.clear()
+    st.session_state["_show_perfil"] = True
 
 # ── Sidebar (apenas navegação, sem dados de usuário) ──────────────────────────
 with st.sidebar:
@@ -574,7 +569,7 @@ with st.sidebar:
         '</div>',
         unsafe_allow_html=True,
     )
-    page = st.radio("Navegação", _nav, index=_nav_default_idx, label_visibility="collapsed")
+    page = st.radio("Navegação", _nav, label_visibility="collapsed")
     st.divider()
     # Logout no rodapé da sidebar
     if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
@@ -6259,7 +6254,10 @@ if check_onboarding():
     st.stop()
 
 # ── Router Desktop ────────────────────────────────────────────────────────────
-if page == "🌄  Bom Dia":
+# Perfil acessível apenas via botão da top bar (não aparece no menu)
+if st.session_state.pop("_show_perfil", False):
+    page_profile()
+elif page == "🌄  Bom Dia":
     page_bom_dia()
 elif page == "📊  Análise de Contexto":
     page_analysis()
@@ -6273,5 +6271,3 @@ elif page == "🗺️  Cobertura":
     page_cobertura()
 elif page == "⚙️  Configurações":
     page_settings()
-elif page == "👤  Meu Perfil":
-    page_profile()
