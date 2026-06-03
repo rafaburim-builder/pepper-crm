@@ -1,0 +1,42 @@
+{
+  "name": "Pepper — CRM Óticas Chilli Beans",
+  "short_name": "Pepper",
+  "description": "CRM de vendas e relacionamento para Óticas Chilli Beans",
+  "start_url": "/?tab=hoje",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1C1816",
+  "theme_color": "#E84300",
+  "categories": ["business", "productivity"],
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/app/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Bom Dia",
+      "short_name": "Hoje",
+      "description": "Fila diária de ações",
+      "url": "/?tab=hoje",
+      "icons": [{"src": "/app/static/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Registrar Visita",
+      "short_name": "Visita",
+      "description": "Nova visita à loja",
+      "url": "/?tab=hoje",
+      "icons": [{"src": "/app/static/icon-192.png", "sizes": "192x192"}]
+    }
+  ]
+}

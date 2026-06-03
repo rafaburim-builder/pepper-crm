@@ -112,6 +112,24 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── PWA + Meta tags mobile ────────────────────────────────────────────────────
+st.markdown("""
+<link rel="manifest" href="/app/static/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pepper">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="apple-touch-icon" href="/app/static/icon-192.png">
+""", unsafe_allow_html=True)
+
+# ── CSS mobile (injeta antes do render) ──────────────────────────────────────
+try:
+    from modules.mobile_ui import inject_mobile_css
+    inject_mobile_css()
+except Exception:
+    pass
+
 st.markdown("""
 <style>
   /* ── Google Fonts: Poppins ── */
@@ -5850,7 +5868,31 @@ def page_cobertura():
 """)
 
 
-# ── Router ────────────────────────────────────────────────────────────────────
+# ── Router Mobile (intercede antes do desktop) ────────────────────────────────
+_mobile_tab = st.query_params.get("tab", None)
+if _mobile_tab:
+    from modules.mobile_ui import render_mobile_chrome
+    _au_mob = st.session_state.get("auth_user", {})
+    render_mobile_chrome(_mobile_tab, _au_mob.get("nome", ""))
+
+    if _mobile_tab == "hoje":
+        page_bom_dia()
+    elif _mobile_tab == "contatos":
+        page_campanhas_ativas()
+    elif _mobile_tab == "lembrar":
+        page_marketing()
+    elif _mobile_tab == "analise":
+        page_analysis()
+    elif _mobile_tab == "mais":
+        _mais_nav = ["📋  Relatórios", "⚙️  Configurações", "📣  Marketing"]
+        st.markdown("### ⋯ Mais")
+        for _mn in _mais_nav:
+            if st.button(_mn, use_container_width=True, key=f"mais_{_mn}"):
+                st.query_params.clear()
+                st.rerun()
+    st.stop()   # não renderiza o layout desktop
+
+# ── Router Desktop ────────────────────────────────────────────────────────────
 if page == "🌄  Bom Dia":
     page_bom_dia()
 elif page == "📊  Análise de Contexto":
