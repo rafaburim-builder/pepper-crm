@@ -4,17 +4,20 @@ Chilli Beans · Óticas
 Rodado com: streamlit run app.py
 """
 # ── Limpa .pyc antigos ANTES de qualquer import ───────────────────────────────
-# O OneDrive pode resetar timestamps e fazer o Python ler cache desatualizado.
-# Esta rotina apaga todos os .pyc fora do venv toda vez que o app inicia.
-import pathlib as _pl
-for _d in _pl.Path(__file__).parent.rglob('__pycache__'):
-    if 'venv' not in str(_d):
-        for _f in list(_d.glob('*.pyc')):
-            try:
-                _f.unlink()
-            except Exception:
-                pass
-del _pl
+# Só relevante no Windows/OneDrive. No Streamlit Cloud (Linux, read-only) o bloco
+# falha silenciosamente — todo o código está em try/except por isso.
+try:
+    import pathlib as _pl
+    for _d in _pl.Path(__file__).parent.rglob('__pycache__'):
+        if 'venv' not in str(_d):
+            for _f in list(_d.glob('*.pyc')):
+                try:
+                    _f.unlink()
+                except Exception:
+                    pass
+    del _pl
+except Exception:
+    pass
 
 # ── Debug de startup (captura erros silenciosos no cloud) ─────────────────────
 import sys as _sys
