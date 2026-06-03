@@ -198,7 +198,7 @@ def inject_mobile_css():
 
 # ── Header e Bottom Nav ──────────────────────────────────────────────────────
 
-def render_mobile_chrome(current_tab: str, user_nome: str = ""):
+def render_mobile_chrome(current_tab: str, user_nome: str = "", avatar_html: str = ""):
     """Renderiza o header fixo e a barra de navegação inferior."""
     nome_curto = user_nome.split()[0] if user_nome else "?"
     tabs_html  = ""
@@ -211,11 +211,46 @@ def render_mobile_chrome(current_tab: str, user_nome: str = ""):
             f'</button>'
         )
 
+    # Botão do usuário no canto direito — avatar ou fallback com inicial
+    _user_btn = (
+        f'<button class="pm-user-btn" onclick="pepperNav(\'perfil\')" '
+        f'title="Meu Perfil">'
+        f'{avatar_html if avatar_html else f"<span>{nome_curto[0].upper() if nome_curto else "?"}</span>"}'
+        f'</button>'
+    )
+
     st.markdown(f"""
+<style>
+.pm-user-btn {{
+  background:    none;
+  border:        2px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  width:         36px;
+  height:        36px;
+  padding:       0;
+  cursor:        pointer;
+  display:       flex;
+  align-items:   center;
+  justify-content: center;
+  overflow:      hidden;
+  -webkit-tap-highlight-color: rgba(232,67,0,0.2);
+}}
+.pm-user-btn img {{
+  width:         36px;
+  height:        36px;
+  border-radius: 50%;
+  object-fit:    cover;
+}}
+.pm-user-btn > div {{
+  width:         36px !important;
+  height:        36px !important;
+  border-radius: 50% !important;
+}}
+</style>
 <!-- ── PEPPER MOBILE CHROME ───────────────────────────────── -->
 <div class="pepper-mobile-header">
   <span class="pm-logo">🌶️ Pepper</span>
-  <span class="pm-user">{nome_curto}</span>
+  {_user_btn}
 </div>
 <div class="pepper-bottom-nav">
   <div class="pbn-inner">{tabs_html}</div>

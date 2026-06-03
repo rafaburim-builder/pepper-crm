@@ -430,103 +430,147 @@ if not st.session_state.autoload_done and not cfg.modo_demo and cfg.is_configure
         finally:
             st.session_state.autoload_done = True
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Dados globais de usuário + rede ───────────────────────────────────────────
+from modules.store import get_rede_do_admin
+from modules.user_profile import get_avatar_html
+_au   = st.session_state.get("auth_user", {})
+_p    = _au.get("perfil", "")
+_rede = get_rede_do_admin(_au.get("login","")) if _p in ("admin","dev") else None
+_rede_nome   = _rede["nome"] if _rede else "Chilli Beans · CRM"
+_label_perfil = PERFIL_LABEL.get(_p, _p.capitalize())
+_avatar_html  = get_avatar_html(_au.get("login",""), size=32)
+
+# ── Navegação filtrada por hierarquia ─────────────────────────────────────────
+_nav = ["🌄  Bom Dia"]
+if can(_au, "gerente") or can(_au, "vendedor"):
+    _nav.append("📊  Análise de Contexto")
+if can(_au, "supervisor"):
+    _nav.append("📋  Relatórios")
+if st.session_state.client_map and (can(_au, "gerente") or can(_au, "vendedor")):
+    _nav.append("🎯  Campanhas Ativas")
+if can(_au, "gerente"):
+    _nav.append("📣  Marketing")
+if can(_au, "gerente") and st.session_state.client_map:
+    _nav.append("🗺️  Cobertura")
+if can(_au, "admin"):
+    _nav.append("⚙️  Configurações")
+_nav.append("👤  Meu Perfil")
+
+# ── TOP BAR (logo esquerda · nav central · user direita) ──────────────────────
+# Injetada antes da sidebar para aparecer no topo em ambas as versões.
+_status_pill = ""
+if cfg.modo_demo:
+    _status_pill = '<span class="pill-demo" style="font-size:.65rem;padding:2px 8px;">DEMO</span>'
+elif cfg.is_configured:
+    _status_pill = '<span class="pill-live" style="font-size:.65rem;padding:2px 8px;">● AO VIVO</span>'
+
+st.markdown(f"""
+<style>
+/* ── TOP BAR ──────────────────────────────────────── */
+.pepper-topbar {{
+  position:      fixed;
+  top:           0;
+  left:          0;
+  right:         0;
+  height:        54px;
+  background:    white;
+  border-bottom: 1px solid #EBE5DE;
+  display:       flex;
+  align-items:   center;
+  justify-content: space-between;
+  padding:       0 20px;
+  z-index:       9999;
+  box-shadow:    0 1px 6px rgba(0,0,0,.07);
+  font-family:   'Poppins', sans-serif;
+}}
+.ptb-logo {{
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  text-decoration: none;
+}}
+.ptb-logo-name {{
+  display:        flex;
+  flex-direction: column;
+  line-height:    1.15;
+}}
+.ptb-logo-name b {{
+  font-size:   1.15rem;
+  font-weight: 900;
+  color:       #E84300;
+  letter-spacing: -.5px;
+}}
+.ptb-logo-name small {{
+  font-size: .62rem;
+  color:     #9E8E7E;
+}}
+.ptb-user {{
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  cursor:      pointer;
+}}
+.ptb-user-info {{
+  text-align: right;
+  line-height: 1.2;
+}}
+.ptb-user-info b   {{ font-size: .82rem; color: #1C1816; }}
+.ptb-user-info small {{ font-size: .68rem; color: #9E8E7E; }}
+
+/* Empurra o conteúdo para baixo da top bar */
+.main .block-container {{
+  padding-top: 70px !important;
+}}
+/* Remove header padrão do Streamlit (substituto é nossa top bar) */
+[data-testid="stHeader"] {{ display: none !important; }}
+
+/* Sidebar: remove logo/user, mantém só navegação */
+[data-testid="stSidebar"] > div:first-child {{
+  padding-top: 70px !important;
+}}
+
+@media (max-width: 768px) {{
+  /* No mobile a top bar já existe via mobile_ui.py — oculta esta */
+  .pepper-topbar {{ display: none !important; }}
+}}
+</style>
+
+<!-- ── PEPPER TOP BAR ────────────────────────────────────── -->
+<div class="pepper-topbar">
+  <div class="ptb-logo">
+    <span style="font-size:1.6rem;line-height:1;">🌶️</span>
+    <div class="ptb-logo-name">
+      <b>Pepper</b>
+      <small>{_rede_nome}</small>
+    </div>
+    &nbsp;{_status_pill}
+  </div>
+  <div class="ptb-user" onclick="window.location.href='?page=perfil'">
+    {_avatar_html}
+    <div class="ptb-user-info">
+      <b>{_au.get('nome','?')}</b><br>
+      <small>{_label_perfil}</small>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Sidebar (apenas navegação, sem dados de usuário) ──────────────────────────
 with st.sidebar:
-    # Logo + nome
-    # ── Logo + nome da rede ──────────────────────────────────────────────────
-    from modules.store import get_rede_do_admin
-    from modules.user_profile import get_avatar_html
-    _au_sb = st.session_state.get("auth_user", {})
-    _rede  = get_rede_do_admin(_au_sb.get("login", "")) if _au_sb.get("perfil") in ("admin","dev") else None
-    _rede_nome = _rede["nome"] if _rede else "Chilli Beans · CRM"
-
-    col_logo, col_name = st.columns([1, 2], gap="small")
-    with col_logo:
-        if _rede and _rede.get("logo_b64"):
-            st.markdown(
-                f'<img src="data:image/jpeg;base64,{_rede["logo_b64"]}" '
-                f'style="width:52px;height:52px;object-fit:contain;border-radius:8px;" alt="logo">',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(_LOGO_SVG, unsafe_allow_html=True)
-    with col_name:
-        st.markdown(
-            f'<div style="padding-top:14px;">'
-            f'<span style="font-size:1.5rem;font-weight:800;letter-spacing:-1px;">Pepper</span><br>'
-            f'<span style="font-size:.68rem;opacity:.85;font-weight:500;">{_rede_nome}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.divider()
-
-    if cfg.modo_demo:
-        st.markdown('<span class="pill-demo">MODO DEMO</span>', unsafe_allow_html=True)
-        st.caption("Dados fictícios. Configure as credenciais para dados reais.")
-    elif cfg.is_configured:
-        st.markdown('<span class="pill-live">● AO VIVO</span>', unsafe_allow_html=True)
-    else:
-        st.markdown('<span class="pill-warn">⚠ SEM CREDENCIAIS</span>', unsafe_allow_html=True)
-
-    st.divider()
-    # ── Identidade do usuário logado com avatar ───────────────────────────────
-    _au = st.session_state.get("auth_user", {})
-    _p  = _au.get("perfil", "")
-    _icon_perfil  = PERFIL_ICON.get(_p, "👤")
-    _label_perfil = PERFIL_LABEL.get(_p, _p.capitalize())
-    _avatar_html  = get_avatar_html(_au.get("login", ""), size=36)
-
-    # Avatar + nome + perfil (clicável para abrir perfil)
     st.markdown(
-        f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
-        f'{_avatar_html}'
-        f'<div style="font-size:.82rem;line-height:1.3;">'
-        f'<b>{_au.get("nome","?")}</b><br>'
-        f'<span style="color:#7A6A5A;font-size:.72rem;">{_label_perfil}</span>'
-        f'</div>'
-        f'</div>',
+        '<div style="padding:4px 0 12px;">'
+        '<span style="font-size:.7rem;font-weight:600;color:#9E8E7E;text-transform:uppercase;'
+        'letter-spacing:.05em;">Menu</span>'
+        '</div>',
         unsafe_allow_html=True,
     )
-
-    # Botões de ação do usuário
-    _sb1, _sb2 = st.columns(2)
-    with _sb1:
-        if st.button("👤 Perfil", key="btn_perfil", use_container_width=True):
-            st.session_state["show_profile"] = True
-            st.rerun()
-    with _sb2:
-        if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
-            st.session_state["auth_user"] = None
-            st.rerun()
-
-    # ── Navegação filtrada por hierarquia ─────────────────────────────────────
-    # Bom Dia: todos (captador só vê esta + funil de visitas embutido)
-    _nav = ["🌄  Bom Dia"]
-    # Análise + Relatórios: gerente e acima (vendedor vê análise filtrada)
-    # Captador: sem acesso a clientes existentes — só prospects novos via Bom Dia
-    if can(_au, "gerente") or can(_au, "vendedor"):
-        _nav.append("📊  Análise de Contexto")
-    if can(_au, "supervisor"):
-        _nav.append("📋  Relatórios")
-    # Campanhas Ativas: gerente+ e vendedor (com clientes carregados)
-    # Captador não tem acesso — não trabalha com base de reativação
-    if st.session_state.client_map and (can(_au, "gerente") or can(_au, "vendedor")):
-        _nav.append("🎯  Campanhas Ativas")
-    # Marketing: gerente+
-    if can(_au, "gerente"):
-        _nav.append("📣  Marketing")
-    # Cobertura: gerente+ (com base de clientes carregada)
-    if can(_au, "gerente") and st.session_state.client_map:
-        _nav.append("🗺️  Cobertura")
-    # Configurações: admin e acima
-    if can(_au, "admin"):
-        _nav.append("⚙️  Configurações")
-    # Meu Perfil: todos
-    _nav.append("👤  Meu Perfil")
     page = st.radio("Navegação", _nav, label_visibility="collapsed")
     st.divider()
-    st.caption("v1.8.6 · Pepper · Chilli Beans TI")
+    # Logout no rodapé da sidebar
+    if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
+        st.session_state["auth_user"] = None
+        st.rerun()
+    st.caption("v1.8.7 · Pepper")
     # ── Widget de atualizações ────────────────────────────────────────────────
     try:
         import json as _json
@@ -6156,8 +6200,10 @@ def check_onboarding():
 _mobile_tab = st.query_params.get("tab", None)
 if _mobile_tab:
     from modules.mobile_ui import render_mobile_chrome
+    from modules.user_profile import get_avatar_html as _get_av
     _au_mob = st.session_state.get("auth_user", {})
-    render_mobile_chrome(_mobile_tab, _au_mob.get("nome", ""))
+    _av_mob = _get_av(_au_mob.get("login", ""), size=36)
+    render_mobile_chrome(_mobile_tab, _au_mob.get("nome", ""), avatar_html=_av_mob)
 
     if _mobile_tab == "hoje":
         page_bom_dia()
@@ -6174,6 +6220,9 @@ if _mobile_tab:
             if st.button(_mn, use_container_width=True, key=f"mais_{_mn}"):
                 st.query_params.clear()
                 st.rerun()
+    elif _mobile_tab == "perfil":
+        # Botão de avatar na top bar mobile → abre Meu Perfil
+        page_profile()
     st.stop()   # não renderiza o layout desktop
 
 # ── Onboarding check (Admin sem loja configurada) ─────────────────────────────
@@ -6181,6 +6230,11 @@ if check_onboarding():
     st.stop()
 
 # ── Router Desktop ────────────────────────────────────────────────────────────
+# Clique no avatar da top bar gera ?page=perfil — redireciona para Meu Perfil
+if st.query_params.get("page") == "perfil":
+    st.query_params.clear()
+    page = "👤  Meu Perfil"
+
 if page == "🌄  Bom Dia":
     page_bom_dia()
 elif page == "📊  Análise de Contexto":
