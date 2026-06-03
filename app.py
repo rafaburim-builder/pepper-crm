@@ -1,35 +1,15 @@
 """
-Pepper — Análise e Sugestão de Compras  v1.8.6
+Pepper — Análise e Sugestão de Compras  v1.8.7
 Chilli Beans · Óticas
 Rodado com: streamlit run app.py
 """
-# ── Limpa .pyc antigos ANTES de qualquer import ───────────────────────────────
-# Só relevante no Windows/OneDrive. No Streamlit Cloud (Linux, read-only) o bloco
-# falha silenciosamente — todo o código está em try/except por isso.
-try:
-    import pathlib as _pl
-    for _d in _pl.Path(__file__).parent.rglob('__pycache__'):
-        if 'venv' not in str(_d):
-            for _f in list(_d.glob('*.pyc')):
-                try:
-                    _f.unlink()
-                except Exception:
-                    pass
-    del _pl
-except Exception:
-    pass
-
-# ── Debug de startup (captura erros silenciosos no cloud) ─────────────────────
-import sys as _sys
-print(f"[Pepper] Python {_sys.version} | startup iniciado", flush=True)
-
-# ── Cloud init: DEVE ser o primeiro import de dados ───────────────────────────
+# ── Cloud init (PRIMEIRO bloco de qualquer coisa) ─────────────────────────────
+# Redireciona I/O para /tmp quando em Streamlit Cloud (repo read-only).
 try:
     from modules.data_dir import init_cloud_data_dir as _init_cloud
     _init_cloud()
-    print("[Pepper] cloud data dir OK", flush=True)
-except Exception as _ce:
-    print(f"[Pepper] cloud init skip: {_ce}", flush=True)
+except Exception:
+    pass
 
 import base64
 import json
@@ -38,8 +18,6 @@ import os
 import sys
 from datetime import date, datetime, timedelta
 from io import BytesIO
-
-print("[Pepper] imports basicos OK", flush=True)
 
 import pandas as pd
 import plotly.graph_objects as go
