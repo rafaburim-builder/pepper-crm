@@ -16,15 +16,17 @@ for _d in _pl.Path(__file__).parent.rglob('__pycache__'):
                 pass
 del _pl
 
+# ── Debug de startup (captura erros silenciosos no cloud) ─────────────────────
+import sys as _sys
+print(f"[Pepper] Python {_sys.version} | startup iniciado", flush=True)
+
 # ── Cloud init: DEVE ser o primeiro import de dados ───────────────────────────
-# No Streamlit Cloud o repo é read-only. Este bloco redireciona PEPPER_DATA_DIR
-# para /tmp/pepper-data e baixa os arquivos JSON do Supabase ANTES de qualquer
-# módulo tentar ler ou escrever em data/.
 try:
     from modules.data_dir import init_cloud_data_dir as _init_cloud
     _init_cloud()
-except Exception:
-    pass
+    print("[Pepper] cloud data dir OK", flush=True)
+except Exception as _ce:
+    print(f"[Pepper] cloud init skip: {_ce}", flush=True)
 
 import base64
 import json
@@ -34,9 +36,13 @@ import sys
 from datetime import date, datetime, timedelta
 from io import BytesIO
 
+print("[Pepper] imports basicos OK", flush=True)
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
+print("[Pepper] streamlit importado OK", flush=True)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
