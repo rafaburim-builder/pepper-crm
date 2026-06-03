@@ -75,6 +75,7 @@ def get_profile(login: str) -> dict:
 def save_profile(
     login: str,
     nome_completo: str = "",
+    nome_social: str = "",
     cpf: str = "",
     nascimento: str = "",
     telefone: str = "",
@@ -88,6 +89,7 @@ def save_profile(
     profiles[login] = {
         **existing,
         "nome_completo": nome_completo or existing.get("nome_completo", ""),
+        "nome_social":   nome_social   if nome_social is not None else existing.get("nome_social", ""),
         "cpf":           cpf           or existing.get("cpf", ""),
         "nascimento":    nascimento     or existing.get("nascimento", ""),
         "telefone":      telefone       or existing.get("telefone", ""),

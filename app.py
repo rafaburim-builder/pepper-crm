@@ -5570,8 +5570,17 @@ def page_bom_dia():
     _DIAS_S = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"]
     _dia_semana = _DIAS_S[_hoje.weekday()]
 
+    # Resolve o nome de saudação: nome_social > primeiro nome > "Pepper"
+    from modules.user_profile import get_profile as _get_profile_bd
+    _auth_bd      = st.session_state.get("auth_user", {})
+    _prof_bd      = _get_profile_bd(_auth_bd.get("login","")) if _auth_bd.get("login") else {}
+    _nome_social  = (_prof_bd.get("nome_social") or "").strip()
+    _nome_completo_bd = (_prof_bd.get("nome_completo") or _auth_bd.get("nome","")).strip()
+    _primeiro_nome = _nome_completo_bd.split()[0] if _nome_completo_bd else ""
+    _saudacao = _nome_social or _primeiro_nome or "Pepper"
+
     st.markdown(
-        f'<div class="cb-title">🌄 Bom Dia, Pepper!</div>',
+        f'<div class="cb-title">🌄 Bom Dia, {_saudacao}!</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -5580,7 +5589,6 @@ def page_bom_dia():
     )
 
     _cmap    = st.session_state.client_map or {}
-    _auth_bd = st.session_state.get("auth_user", {})
     _vend_nome_bd = _auth_bd.get("nome", "")
     _vend_login_bd = _auth_bd.get("login", "")
     _dret  = st.session_state.df_retorno
@@ -6038,16 +6046,17 @@ def page_profile():
 
     # Inicializa session_state com valores salvos (só na primeira renderização)
     for _k, _v in [
-        ("pf_nome",   p.get("nome_completo","")),
-        ("pf_cpf",    p.get("cpf","")),
-        ("pf_nasc",   p.get("nascimento","")),
-        ("pf_fone",   p.get("telefone","")),
-        ("pf_email",  p.get("email","")),
-        ("pf_rua",    _end.get("rua","")),
-        ("pf_num",    _end.get("numero","")),
-        ("pf_bairro", _end.get("bairro","")),
-        ("pf_cidade", _end.get("cidade","")),
-        ("pf_uf",     _end.get("uf","")),
+        ("pf_nome",         p.get("nome_completo","")),
+        ("pf_nome_social",  p.get("nome_social","")),
+        ("pf_cpf",          p.get("cpf","")),
+        ("pf_nasc",         p.get("nascimento","")),
+        ("pf_fone",         p.get("telefone","")),
+        ("pf_email",        p.get("email","")),
+        ("pf_rua",          _end.get("rua","")),
+        ("pf_num",          _end.get("numero","")),
+        ("pf_bairro",       _end.get("bairro","")),
+        ("pf_cidade",       _end.get("cidade","")),
+        ("pf_uf",           _end.get("uf","")),
     ]:
         if f"_pf_init_{_k}" not in st.session_state:
             st.session_state[_k]             = _v
@@ -6056,6 +6065,14 @@ def page_profile():
     _f1, _f2 = st.columns(2)
     _f1.text_input("Nome completo *", key="pf_nome",  on_change=_cb_nome)
     _f2.text_input("CPF *",           key="pf_cpf",   on_change=_cb_cpf,  placeholder="000.000.000-00")
+
+    st.text_input(
+        "Como quer ser chamado(a)?",
+        key="pf_nome_social",
+        placeholder="Ex.: Rafa, Carol, João…",
+        help="Aparece no lugar de 'Pepper' na saudação de Bom Dia. "
+             "Deixe em branco para usar o primeiro nome do cadastro.",
+    )
     _f3, _f4 = st.columns(2)
     _f3.text_input("Data de nascimento *", key="pf_nasc",  on_change=_cb_nasc, placeholder="DD/MM/AAAA")
     _f4.text_input("Telefone *",           key="pf_fone",  on_change=_cb_fone, placeholder="(19) 99999-9999")
@@ -6071,16 +6088,17 @@ def page_profile():
     _e5.text_input("UF",      key="pf_uf",     on_change=_cb_uf, max_chars=2)
 
     if st.button("💾 Salvar dados", type="primary", use_container_width=True, key="btn_save_profile"):
-        _nome  = st.session_state.get("pf_nome","").strip()
-        _cpf   = _fmt_cpf(st.session_state.get("pf_cpf",""))
-        _nasc  = _fmt_data(st.session_state.get("pf_nasc",""))
-        _fone  = _fmt_fone(st.session_state.get("pf_fone",""))
-        _email = st.session_state.get("pf_email","").strip().lower()
-        _rua   = st.session_state.get("pf_rua","").strip()
-        _num   = st.session_state.get("pf_num","").strip()
-        _bairro = _fmt_nome(st.session_state.get("pf_bairro",""))
-        _cidade = _fmt_nome(st.session_state.get("pf_cidade",""))
-        _uf    = st.session_state.get("pf_uf","").strip().upper()
+        _nome        = st.session_state.get("pf_nome","").strip()
+        _nome_social = st.session_state.get("pf_nome_social","").strip()
+        _cpf         = _fmt_cpf(st.session_state.get("pf_cpf",""))
+        _nasc        = _fmt_data(st.session_state.get("pf_nasc",""))
+        _fone        = _fmt_fone(st.session_state.get("pf_fone",""))
+        _email       = st.session_state.get("pf_email","").strip().lower()
+        _rua         = st.session_state.get("pf_rua","").strip()
+        _num         = st.session_state.get("pf_num","").strip()
+        _bairro      = _fmt_nome(st.session_state.get("pf_bairro",""))
+        _cidade      = _fmt_nome(st.session_state.get("pf_cidade",""))
+        _uf          = st.session_state.get("pf_uf","").strip().upper()
 
         if not _nome:
             st.error("Nome completo é obrigatório.")
@@ -6088,6 +6106,7 @@ def page_profile():
             save_profile(
                 _login,
                 nome_completo = _fmt_nome(_nome),
+                nome_social   = _nome_social,
                 cpf           = _cpf,
                 nascimento    = _nasc,
                 telefone      = _fone,
@@ -6102,8 +6121,8 @@ def page_profile():
                 _au_p["nome"] = _nome_fmt
                 st.session_state["auth_user"] = _au_p
             # Limpa flags de inicialização para recarregar os valores salvos
-            for _k in ["pf_nome","pf_cpf","pf_nasc","pf_fone","pf_email",
-                        "pf_rua","pf_num","pf_bairro","pf_cidade","pf_uf"]:
+            for _k in ["pf_nome","pf_nome_social","pf_cpf","pf_nasc","pf_fone",
+                       "pf_email","pf_rua","pf_num","pf_bairro","pf_cidade","pf_uf"]:
                 st.session_state.pop(f"_pf_init_{_k}", None)
             st.success("✅ Dados salvos!")
             st.rerun()
