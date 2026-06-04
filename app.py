@@ -790,10 +790,10 @@ st.markdown("""
 .ptb-dd-sub  { font-size: .7rem; color: #7A6A5A; white-space: nowrap; }
 .ptb-dd-loja { font-size: .68rem; color: #9E8E7E; white-space: nowrap; }
 .ptb-dd-sep  { height: 1px; background: #EBE5DE; margin: 2px 0; }
-.ptb-dd-btn  { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 16px; background: none; border: none; text-align: left; font-size: .83rem; font-family: 'Poppins',sans-serif; color: #1C1816; cursor: pointer; white-space: nowrap; transition: background .1s; }
-.ptb-dd-btn:hover   { background: #F8F4F0; }
+.ptb-dd-btn  { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 16px; background: none; border: none; text-align: left; font-size: .83rem; font-family: 'Poppins',sans-serif; color: #1C1816; cursor: pointer; white-space: nowrap; transition: background .1s; text-decoration: none; box-sizing: border-box; }
+.ptb-dd-btn:hover   { background: #F8F4F0; color: #1C1816; }
 .ptb-dd-btn.danger  { color: #DC2626; }
-.ptb-dd-btn.danger:hover { background: #FEF2F2; }
+.ptb-dd-btn.danger:hover { background: #FEF2F2; color: #DC2626; }
 
 @media (max-width: 768px) {
   .pepper-topbar { display: none !important; }
@@ -833,25 +833,38 @@ _html_logo = (
     '</div>'
 )
 
+# Nav: target="_self" força navegação na mesma aba
 _html_nav = '<div class="ptb-nav">'
 for _ni, _n in enumerate(_nav):
-    _parts  = _n.strip().split()
-    _icon   = _parts[0]                     # emoji
-    _label  = " ".join(_parts[1:]) if len(_parts) > 1 else _n.strip()
-    _cls    = ' active' if _ni == _nav_active else ''
+    _parts = _n.strip().split()
+    _icon  = _parts[0]
+    _lbl   = " ".join(_parts[1:]) if len(_parts) > 1 else _n.strip()
+    _cls   = ' active' if _ni == _nav_active else ''
     _html_nav += (
-        '<a href="?nav=' + str(_ni) + '"'
+        '<a href="?nav=' + str(_ni) + '" target="_self"'
         ' class="ptb-nav-item' + _cls + '"'
-        ' data-label="' + _label + '">'
-        + _icon +
-        '</a>'
+        ' data-label="' + _lbl + '">'
+        + _icon + '</a>'
     )
 _html_nav += '</div>'
 
+# Dropdown do usuário: JavaScript inline (sem funções externas — script blocks
+# são removidos pelo Streamlit). Overlay cobre a tela para fechar ao clicar fora.
+_toggle_js = (
+    "var d=document.getElementById('ptbDD');"
+    "var c=document.getElementById('ptbCatcher');"
+    "var o=d.classList.toggle('open');"
+    "c.style.display=o?'block':'none';"
+)
+_close_js = (
+    "document.getElementById('ptbDD').classList.remove('open');"
+    "this.style.display='none';"
+)
+
 _loja_row = ('<div class="ptb-dd-loja">🏪 ' + _loja_dd + '</div>') if _loja_dd else ''
 _html_user = (
-    '<div class="ptb-user-wrap" id="ptbWrap">'
-      '<button class="ptb-user-btn" onclick="ptbToggle(event)">'
+    '<div class="ptb-user-wrap">'
+      '<button class="ptb-user-btn" onclick="' + _toggle_js + '">'
         '<div class="ptb-av">' + _initials + '</div>'
         + _nome_first + ' ▾'
       '</button>'
@@ -865,34 +878,23 @@ _html_user = (
           '</div>'
         '</div>'
         '<div class="ptb-dd-sep"></div>'
-        '<button class="ptb-dd-btn" onclick="ptbAction(\'perfil\')">✏️  Editar perfil</button>'
-        '<button class="ptb-dd-btn" onclick="ptbAction(\'senha\')">🔑  Trocar senha</button>'
+        '<a href="?page=perfil" target="_self" class="ptb-dd-btn">✏️  Editar perfil</a>'
+        '<a href="?page=senha"  target="_self" class="ptb-dd-btn">🔑  Trocar senha</a>'
         '<div class="ptb-dd-sep"></div>'
-        '<button class="ptb-dd-btn danger" onclick="ptbAction(\'sair\')">🚪  Sair</button>'
+        '<a href="?page=sair"   target="_self" class="ptb-dd-btn danger">🚪  Sair</a>'
+      '</div>'
+      # Overlay transparente: fecha o dropdown ao clicar fora
+      '<div id="ptbCatcher"'
+        ' style="display:none;position:fixed;inset:0;z-index:10000;"'
+        ' onclick="' + _close_js + '">'
       '</div>'
     '</div>'
-)
-_html_script = (
-    '<script>'
-    'function ptbToggle(e){'
-      'e.stopPropagation();'
-      'document.getElementById("ptbDD").classList.toggle("open");'
-    '}'
-    'function ptbAction(a){window.location.href="?page="+a;}'
-    'document.addEventListener("click",function(e){'
-      'if(!e.target.closest("#ptbWrap")){'
-        'var m=document.getElementById("ptbDD");'
-        'if(m)m.classList.remove("open");'
-      '}'
-    '});'
-    '</script>'
 )
 
 st.markdown(
     '<div class="pepper-topbar">'
     + _html_logo + _html_nav + _html_user
-    + '</div>'
-    + _html_script,
+    + '</div>',
     unsafe_allow_html=True,
 )
 
