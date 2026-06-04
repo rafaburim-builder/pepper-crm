@@ -58,6 +58,15 @@ def _load() -> dict:
         return {}
 
 
+def _cloud_sync(data: dict) -> None:
+    try:
+        from modules.cloud_storage import save_json as _csave, _is_cloud
+        if _is_cloud():
+            _csave("profiles.json", data)
+    except Exception:
+        pass
+
+
 def _save(data: dict) -> None:
     path = _get_path()
     try:
@@ -66,6 +75,7 @@ def _save(data: dict) -> None:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except (PermissionError, OSError):
         pass
+    _cloud_sync(data)   # auto-sync Supabase
 
 
 def get_profile(login: str) -> dict:

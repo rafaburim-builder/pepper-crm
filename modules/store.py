@@ -60,6 +60,15 @@ def _load(filename: str) -> dict:
         return {}
 
 
+def _cloud_sync(filename: str, data: dict) -> None:
+    try:
+        from modules.cloud_storage import save_json as _csave, _is_cloud
+        if _is_cloud():
+            _csave(filename, data)
+    except Exception:
+        pass
+
+
 def _save_file(filename: str, data: dict) -> None:
     path = _get_path(filename)
     try:
@@ -68,6 +77,7 @@ def _save_file(filename: str, data: dict) -> None:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except (PermissionError, OSError):
         pass
+    _cloud_sync(filename, data)   # auto-sync Supabase
 
 
 # ── Redes ─────────────────────────────────────────────────────────────────────

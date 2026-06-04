@@ -80,6 +80,16 @@ def _load() -> list:
         return []
 
 
+def _cloud_sync(filename: str, data) -> None:
+    """Sobe o arquivo para o Supabase quando em modo cloud."""
+    try:
+        from modules.cloud_storage import save_json as _csave, _is_cloud
+        if _is_cloud():
+            _csave(filename, data)
+    except Exception:
+        pass
+
+
 def _save(users: list) -> None:
     path = _get_path()
     try:
@@ -87,7 +97,8 @@ def _save(users: list) -> None:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(users, f, ensure_ascii=False, indent=2)
     except (PermissionError, OSError):
-        pass   # Cloud: read-only filesystem — dados já estão no Supabase
+        pass
+    _cloud_sync("users.json", users)   # auto-sync Supabase
 
 
 def ensure_default_admin() -> bool:
@@ -271,13 +282,15 @@ def _remember_path() -> str:
 
 def save_remembered_login(login: str) -> None:
     """Salva o login para pré-preenchimento no próximo acesso."""
+    _data = {"login": login}
     try:
         path = _remember_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"login": login}, f)
+            json.dump(_data, f)
     except (PermissionError, OSError):
         pass
+    _cloud_sync("remember.json", _data)   # auto-sync Supabase
 
 
 def get_remembered_login() -> str:
