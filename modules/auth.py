@@ -256,3 +256,47 @@ def perfis_criáveis_por(user: Optional[dict]) -> list:
     if nv >= NIVEL["gerente"]:
         return ["vendedor","captador"]
     return []
+
+
+# ── Lembrar login ─────────────────────────────────────────────────────────────
+
+def _remember_path() -> str:
+    try:
+        from modules.data_dir import data_path
+        return data_path("remember.json")
+    except Exception:
+        _r = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(_r, "data", "remember.json")
+
+
+def save_remembered_login(login: str) -> None:
+    """Salva o login para pré-preenchimento no próximo acesso."""
+    try:
+        path = _remember_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"login": login}, f)
+    except (PermissionError, OSError):
+        pass
+
+
+def get_remembered_login() -> str:
+    """Retorna o login salvo (string vazia se não houver)."""
+    try:
+        path = _remember_path()
+        if not os.path.exists(path):
+            return ""
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("login", "")
+    except Exception:
+        return ""
+
+
+def clear_remembered_login() -> None:
+    """Remove o login salvo."""
+    try:
+        path = _remember_path()
+        if os.path.exists(path):
+            os.remove(path)
+    except (PermissionError, OSError):
+        pass
