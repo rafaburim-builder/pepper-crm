@@ -1,5 +1,5 @@
 """
-Pepper — Análise e Sugestão de Compras  v1.8.7
+Pepper — Análise e Sugestão de Compras  v1.8.8
 Chilli Beans · Óticas
 Rodado com: streamlit run app.py
 """
@@ -221,6 +221,7 @@ from modules.auth import (
     is_dev, is_admin, is_supervisor, is_gerente, is_vendedor,
     can, nivel, perfil_display, perfis_criáveis_por,
     cod_vendedor_do_usuario, PERFIL_ICON, PERFIL_LABEL, senha_padrao,
+    save_remembered_login, get_remembered_login, clear_remembered_login,
 )
 ensure_default_admin()   # cria admin/pepper2026 na primeira execução
 
@@ -229,19 +230,50 @@ if "auth_user" not in st.session_state:
 
 if st.session_state["auth_user"] is None:
     # ── Tela de login ─────────────────────────────────────────────────────────
-    _sp = senha_padrao()
+    _sp           = senha_padrao()
+    _remembered   = get_remembered_login()   # login salvo pelo "Lembrar"
+
+    # Avatar do usuário lembrado (se houver)
+    _remember_avatar = ""
+    if _remembered:
+        from modules.user_profile import get_avatar_html as _gav
+        _remember_avatar = _gav(_remembered, size=56)
+
     st.markdown(
-        '<div style="max-width:380px;margin:60px auto;">'
+        '<div style="max-width:380px;margin:60px auto 0;">'
         '<div style="text-align:center;margin-bottom:28px;">'
         '<span style="font-size:2.5rem;font-weight:900;color:#E84300;">🌶️ Pepper</span><br>'
         '<span style="font-size:.9rem;color:#7A6A5A;font-weight:500;">Chilli Beans · CRM</span>'
         '</div>',
         unsafe_allow_html=True,
     )
+
+    # Se há login lembrado, mostra avatar + nome acima do campo
+    if _remembered and _remember_avatar:
+        st.markdown(
+            f'<div style="text-align:center;margin-bottom:16px;">'
+            f'<div style="display:inline-flex;flex-direction:column;align-items:center;'
+            f'gap:6px;background:#F8F4F0;border-radius:12px;padding:14px 24px;">'
+            f'{_remember_avatar}'
+            f'<span style="font-size:.82rem;font-weight:600;color:#1C1816;">{_remembered}</span>'
+            f'<span style="font-size:.7rem;color:#9E8E7E;">Login salvo</span>'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+
     with st.form("login_form"):
-        _login_in = st.text_input("Login", placeholder="seu.login")
-        _senha_in = st.text_input("Senha", type="password", placeholder="••••••")
-        _submit   = st.form_submit_button("Entrar →", type="primary", width="stretch")
+        _login_in = st.text_input(
+            "Login",
+            value=_remembered,
+            placeholder="seu.login",
+        )
+        _senha_in   = st.text_input("Senha", type="password", placeholder="••••••")
+        _remember_me = st.checkbox(
+            "Lembrar meu login neste dispositivo",
+            value=bool(_remembered),
+        )
+        _submit = st.form_submit_button("Entrar →", type="primary", width="stretch")
+
     st.markdown(
         f'<p style="text-align:center;font-size:.75rem;color:#9E8E7E;margin-top:12px;">'
         f'Primeiro acesso? Use a senha padrão <b>{_sp}</b></p>'
@@ -252,6 +284,10 @@ if st.session_state["auth_user"] is None:
     if _submit:
         _user = authenticate(_login_in.strip(), _senha_in)
         if _user:
+            if _remember_me:
+                save_remembered_login(_login_in.strip())
+            else:
+                clear_remembered_login()
             st.session_state["auth_user"] = _user
             st.rerun()
         else:
@@ -260,6 +296,18 @@ if st.session_state["auth_user"] is None:
 
 # Usuário autenticado — atalho global
 _auth_user = st.session_state["auth_user"]
+
+# ── Timeout de inatividade: 2 horas ──────────────────────────────────────────
+import time as _time
+_TIMEOUT_SEGUNDOS = 7200   # 2 h
+_agora_ts = _time.time()
+_ultima_at = st.session_state.get("_last_activity", _agora_ts)
+if _agora_ts - _ultima_at > _TIMEOUT_SEGUNDOS:
+    st.session_state["auth_user"] = None
+    st.session_state.pop("_last_activity", None)
+    st.warning("⏱️ Sua sessão expirou por inatividade. Faça login novamente.")
+    st.rerun()
+st.session_state["_last_activity"] = _agora_ts
 
 # ── Troca de senha obrigatória no primeiro acesso ─────────────────────────────
 if _auth_user.get("primeiro_acesso"):
@@ -675,10 +723,10 @@ with st.sidebar:
     page = st.radio("Navegação", _nav, label_visibility="collapsed")
     st.divider()
     # Logout no rodapé da sidebar
-    if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
+    if st.button("🚪 Sair", key="btn_logout", width="stretch"):
         st.session_state["auth_user"] = None
         st.rerun()
-    st.caption("v1.8.7 · Pepper")
+    st.caption("v1.8.8 · Pepper")
     # ── Widget de atualizações ────────────────────────────────────────────────
     try:
         import json as _json
@@ -5554,7 +5602,7 @@ def page_marketing():
                                 save_campaigns(campaigns)
                                 st.session_state.campaigns = campaigns
                                 st.session_state[_edit_key] = False
-                                st.success(f"✅ Campanha atualizada!")
+                                st.success("✅ Campanha atualizada!")
                                 st.rerun()
                             else:
                                 st.error("Nome e template são obrigatórios.")
@@ -6072,7 +6120,7 @@ def page_change_password():
 
     _bc1, _bc2 = st.columns([1, 3])
     with _bc1:
-        if st.button("💾 Salvar", type="primary", use_container_width=True, key="btn_cp_save"):
+        if st.button("💾 Salvar", type="primary", width="stretch", key="btn_cp_save"):
             if len(_cp1) < 6:
                 st.error("A senha deve ter pelo menos 6 caracteres.")
             elif _cp1 != _cp2:
@@ -6085,7 +6133,7 @@ def page_change_password():
                 for k in ("cp_nova", "cp_conf"):
                     st.session_state.pop(k, None)
     with _bc2:
-        if st.button("← Voltar", key="btn_cp_back", use_container_width=True):
+        if st.button("← Voltar", key="btn_cp_back", width="stretch"):
             st.session_state.pop("_show_senha", None)
             st.rerun()
 
@@ -6227,7 +6275,7 @@ def page_profile():
     _e4.text_input("Cidade",  key="pf_cidade", on_change=_cb_cidade)
     _e5.text_input("UF",      key="pf_uf",     on_change=_cb_uf, max_chars=2)
 
-    if st.button("💾 Salvar dados", type="primary", use_container_width=True, key="btn_save_profile"):
+    if st.button("💾 Salvar dados", type="primary", width="stretch", key="btn_save_profile"):
         _nome        = st.session_state.get("pf_nome","").strip()
         _nome_social = st.session_state.get("pf_nome_social","").strip()
         _cpf         = _fmt_cpf(st.session_state.get("pf_cpf",""))
@@ -6280,7 +6328,7 @@ def page_profile():
                     st.image(_foto, width=120, caption="Pré-visualização")
                 with _fc2:
                     st.write("")
-                    if st.button("✅ Usar esta foto", type="primary", use_container_width=True):
+                    if st.button("✅ Usar esta foto", type="primary", width="stretch"):
                         try:
                             _foto.seek(0)
                             _b64 = compress_avatar(_foto.read())
@@ -6311,7 +6359,7 @@ def page_profile():
                     if st.button(
                         "✓ Ativo" if _ativo else "Usar",
                         key=f"av_{_av['slug']}",
-                        use_container_width=True,
+                        width="stretch",
                         type="primary" if _ativo else "secondary",
                     ):
                         save_profile(_login, avatar_tipo="galeria", avatar_data=_av["slug"])
@@ -6343,7 +6391,7 @@ def check_onboarding():
     _s = STEPS[_step - 1]
     st.markdown(f"### {_s['icone']} Passo {_step}/{TOTAL_STEPS} — {_s['titulo']}")
     st.caption(_s["desc"])
-    st.info(f"Complete este passo para desbloquear o restante do sistema.")
+    st.info("Complete este passo para desbloquear o restante do sistema.")
     # Aqui cada passo renderiza seu formulário específico
     # (implementação futura; por ora mostra botão de avançar para teste)
     if st.button(f"✅ Concluir passo {_step} e avançar", type="primary"):
@@ -6376,7 +6424,7 @@ if _mobile_tab:
         _mais_nav = ["📋  Relatórios", "⚙️  Configurações", "📣  Marketing"]
         st.markdown("### ⋯ Mais")
         for _mn in _mais_nav:
-            if st.button(_mn, use_container_width=True, key=f"mais_{_mn}"):
+            if st.button(_mn, width="stretch", key=f"mais_{_mn}"):
                 st.query_params.clear()
                 st.rerun()
     elif _mobile_tab == "perfil":
