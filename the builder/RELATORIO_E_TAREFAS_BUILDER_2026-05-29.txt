@@ -2578,3 +2578,1936 @@ PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
 Toda fiação de UI e os fixes em .py de produção seguem como tarefas manuais com
 o app parado (PARTE D).
 
+
+
+================================================================================
+ITERAÇÃO 24 — 03/06/2026 02:04 (execução autônoma horária, slot das 02h)
+================================================================================
+Backup desta noite: "the builder/Backup 02 03 06 2026" (robocopy, 90 arquivos,
+SHA-256 conferido em app.py/config.py/requirements.txt). Saúde do app: py_compile
+de app.py/config.py/_migrate_to_cloud.py/modules OK; suíte 470 → 487 testes (todos
+verdes; +17 do novo helper). Servidor permaneceu DESLIGADO (não inicio o app — é
+controlado pelo usuário). Nenhum .py de produção tocado: git status mostra só os
+dois arquivos NOVOS (modules/cadencia.py, tests/test_cadencia.py).
+
+--------------------------------------------------------------------------------
+PARTE A — AS QUATRO ANÁLISES (o vendedor, o designer, o executivo, o engenheiro)
+--------------------------------------------------------------------------------
+
+[1] VENDEDOR LEIGO DE ÓTICA (quer aprender a vender e bater meta)
+  + O RFM já me diz QUEM são meus melhores clientes e quem está esfriando — isso
+    sozinho já é mais do que eu tinha (eu não sabia por onde começar o dia).
+  − Mas ele para no diagnóstico. Vejo "⚠️ Em Risco" e penso: "ok... e agora?".
+    Não tenho o QUE FALAR, por QUAL canal, nem ATÉ QUANDO. Tenho que inventar o
+    texto toda vez — e como sou leigo, geralmente não mando nada.
+  − A régua de pós-venda (D+1/7/30/90) que deveria me ajudar sozinha ainda está
+    quebrada (POSVENDA-1/3): só o D+1 dispara. Os toques de 7/30/90 dias somem.
+  → O que eu preciso: uma tela "MEU DIA" que diga "ligue para estes 5, mande
+    WhatsApp para estes 8, e aqui está o texto pronto pra cada um".
+
+[2] DESIGNER RENOMADO (marca, hierarquia, acessibilidade)
+  + Paleta da marca já existe no RFM (pimenta #D4002A nos Campeões) — boa base.
+  − Status hoje dependem de cor + emoji. Para um daltônico, "Em Risco" (laranja) e
+    "Hibernando" (cinza) podem se confundir; falta o rótulo textual sempre visível
+    (já está como UX-3). Um cartão de cadência precisa nascer acessível: ícone de
+    canal + rótulo do segmento em TEXTO + cor só como reforço.
+  − Falta um "objeto de UI" reaproveitável: o CARTÃO DE TAREFA (nome, segmento,
+    motivo, canal, vencimento, botão de ação) é o átomo que MEU DIA, Cadência e
+    Win-back vão repetir. Defini os campos desse cartão já no helper desta noite
+    para a UI ter um contrato estável.
+
+[3] EXECUTIVO COMERCIAL (40 anos, melhor diretor comercial — foco em conversão)
+  + Segmentação RFM é o ativo certo; é onde Salesforce/RD começam.
+  − Segmentar sem CADÊNCIA é deixar dinheiro na mesa. O valor não está em saber
+    que o cliente está Em Risco — está em DISPARAR a ação certa na hora certa e
+    COBRAR a execução. Hoje não há "próxima ação" nem prazo: nada é cobrável.
+  − Sem cadência, também não há previsibilidade: não sei quantos toques o time fez
+    nem quantos viraram visita/venda. O helper desta noite cria a unidade de
+    trabalho (tarefa datada por segmento) — sem ela, COM-2 (ROI por toque) não tem
+    o que medir. Cadência primeiro, atribuição depois.
+  − Win-back é a maior alavanca de margem numa ótica (recompra de armação/lente a
+    cada ~18–24 meses). O helper já entrega um modo "só win-back" (⚠️/🌙/❄️) para
+    transformar a base fria em campanha.
+
+[4] ENGENHEIRO SÊNIOR (fintech/CRM/segurança)
+  + Padrão "módulo puro + teste + fiação manual com app parado" está maduro e
+    seguro; a suíte cobre 487 casos. dateutils e queue_gating mostram que a peça
+    pronta é absorvida em 1 dia.
+  − DÍVIDA DE SEGURANÇA AINDA ABERTA (SEC-1): brevo_api_key em PLAINTEXT em
+    data/email_config.json (pasta sincronizada no OneDrive) e fora de
+    secure_store.SENSITIVE_KEYS — confirmado de novo nesta noite. Tratar como
+    vazada: rotacionar + mover p/ vault. É o item de maior risco do projeto.
+  − app.py monolítico cresceu para ~317 KB (ENG-1) — modularização por página
+    Streamlit continua pendente, mas é refactor de app parado.
+  − A migração para nuvem (_migrate_to_cloud.py + cloud_storage) está em curso
+    (modificações não commitadas). Por isso mantive tudo aditivo e isolado: zero
+    toque em produção enquanto a migração não estabiliza.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK (Salesforce / RD Station / Dynamics / Linx Microvix)
+--------------------------------------------------------------------------------
+O consenso dos CRMs consolidados é que SEGMENTAR é só metade — a outra metade é
+prescrever a PRÓXIMA AÇÃO e datá-la:
+
+  * Salesforce "Next Best Action" — para cada conta, a ação recomendada + script.
+  * RD Station "Cadência"         — sequência de toques (canal + prazo + modelo
+                                    de mensagem) por estágio do funil.
+  * Microsoft Dynamics "Sequences"— fila de atividades datadas que aparece na
+                                    agenda do vendedor.
+  * Linx Microvix / varejo ótico  — recompra prevista por ciclo de troca de lente.
+
+O gap do Pepper era exatamente esse "último metro": RFM dizia o segmento, mas não
+existia a ponte segmento → tarefa acionável. A entrega desta noite fecha esse
+metro em forma de peça pura, testável e pronta para a UI.
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo (opção (a) do "próximo alvo" da Iter-23 e item COM-1 do roadmap): o helper
+PURO de CADÊNCIA — a ponte que faltava entre o RFM e a ação do vendedor.
+
+ENTREGUE (não importado pelo app → risco ZERO):
+  1) NOVO modules/cadencia.py — STDLIB pura + dateutils, sem I/O/rede/estado:
+       - _CADENCE_POLICY: para cada um dos 7 segmentos RFM, a política "Next Best
+         Action" — prioridade, canal (WhatsApp/Ligação/E-mail), prazo (em dias),
+         cooldown (não recontatar antes de N dias) e um SCRIPT de abordagem em
+         PT-BR com a voz da Chilli Beans.
+       - script_for(segmento, nome, loja): script pronto, só 1º nome, sem
+         placeholders vazando.
+       - build_task(row, today, loja): transforma 1 linha RFM em 1 tarefa
+         acionável {codigo, nome, fone, segmento, prioridade, acao, canal,
+         vencimento "DD/MM/AAAA", motivo, script}; devolve None se o cliente está
+         em cooldown (já contatado há pouco) ou se o segmento é desconhecido.
+       - generate_cadence(rows, only_segments=...): a lista inteira, ordenada por
+         prioridade; com only_segments dá o modo "só win-back" (⚠️/🌙/❄️).
+       - daily_agenda(rows, limit): as N tarefas do dia para a home "MEU DIA".
+       - cadence_summary(tasks): contadores por canal/segmento p/ o cabeçalho.
+  2) NOVO tests/test_cadencia.py (+17, todos passam) — cobre cada função E PROVA
+     o encaixe na saída REAL de rfm.score_rfm (monta df_retorno, roda o RFM de
+     verdade, gera cadência sem KeyError). Casos de cooldown, ordenação por
+     prioridade, filtro win-back, limite da agenda e preenchimento de script.
+
+Por que isto destrava o roadmap: define o CONTRATO da "tarefa de cadência" que
+UX-1 (MEU DIA), UX-2 (cartão de KPI/tarefa) e COM-2 (ROI por toque, que mede
+tarefas) vão consumir. Cadência é a unidade de trabalho que faltava.
+
+AUDITORIA READ-ONLY (opção (c) da Iter-23 — dimensionar CAT-1b):
+  * produto_map: 56.342 SKUs, 0 categorias None. As 27 referências OC.ES TODAS
+    mapeiam para "OC" (Counter OC=27). Ou seja, **CAT-1b já está resolvido** — a
+    regra OC.ES→OC foi aplicada e não há mais perda de SKU. Item pode ser fechado.
+
+NADA exigiu intervenção manual nesta execução (tudo aditivo/isolado).
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (atualizada — exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+Ordenado por ROI/risco. Itens [APP PARADO] tocam .py de produção; faça com o
+servidor desligado e rode `pytest tests` antes de subir.
+
+SEGURANÇA (fazer primeiro)
+[ ] SEC-1  Rotacionar a brevo_api_key (tratar como vazada — plaintext no OneDrive
+           em data/email_config.json) e: adicionar "brevo_api_key" a
+           secure_store.SENSITIVE_KEYS; mover o valor p/ o vault; email_sender ler
+           do vault com fallback legado; limpar a chave do JSON; testar envio.
+           [SEGUE ABERTO — reconfirmado na Iter-24]
+
+CADÊNCIA / RELACIONAMENTO (alto ROI — peças prontas entregues)
+[ ] CAD-FIX-1 [APP PARADO] Ligar modules/cadencia.py na UI:
+      (a) nova página/aba "MEU DIA": chamar cadencia.daily_agenda(rows_rfm,
+          loja=<loja_logada>, limit=10) e renderizar 1 cartão por tarefa (nome,
+          segmento em TEXTO, motivo, canal, vencimento, botão WhatsApp/Ligar com o
+          script já preenchido em t["script"]).
+      (b) painel "Cadência": cadencia.generate_cadence(rows_rfm) + filtro
+          only_segments=["⚠️ Em Risco","🌙 Hibernando","❄️ Perdidos"] p/ o modo
+          win-back; cabeçalho com cadencia.cadence_summary(tarefas).
+      (c) passar row["ultimo_toque"] (data do último contato em client_meta) para
+          o cooldown funcionar e não repetir cliente recém-contatado.
+[ ] PV-FIX-1 [APP PARADO] Ligar queue_gating na régua de pós-venda (POSVENDA-1/3):
+      (a) pos_venda.register_sale_for_pos_venda: item["enviar_em"] =
+          queue_gating.stamp_send_date(data_venda, tp["dia"]).
+      (b) email_queue.push_to_queue: trocar a dedupe por e-mail por
+          queue_gating.dedupe_new(fila, items).
+      (c) email_queue.process_queue: vencidos, pendentes =
+          queue_gating.partition_due(fila); processar só `vencidos`; regravar
+          `pendentes`. Depois: tests/test_queue_gating.py "bug_vivo" deve passar a
+          FALHAR (sinal do fix) — atualizar a expectativa p/ 4 toques entram.
+[ ] PV-FIX-2 [APP PARADO] pos_venda.scan_and_register (linha ~143): trocar
+      pd.to_datetime(..., errors="coerce") por dateutils.parse_br_date.
+
+QUALIDADE/DÍVIDA
+[ ] DOC-1  [APP PARADO] Atualizar docstrings de dateutils.py (e agora cadencia.py
+           quando ligada): dateutils JÁ é importado pelo app (funil/pos_venda) —
+           remover "NÃO é importado pelo app".
+[x] CAT-1b RESOLVIDO (Iter-24): produto_map sem categorias None; OC.ES→OC aplicado
+           (27/27). Pode fechar.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/" (18 hoje; manter ~14).
+           O classificador nega minha exclusão → ação manual.
+
+ROADMAP DE PRODUTO (esforço maior, planejar)
+[ ] UX-1   Home "MEU DIA" — agora com peça pronta (cadencia.daily_agenda). Ver
+           CAD-FIX-1.
+[ ] UX-2   Tema de marca Chilli Beans (.streamlit/config.toml) + logo no header +
+           componente "card de KPI/tarefa" reaproveitável.
+[ ] UX-3   Rótulo textual junto de cor/emoji nos status (acessibilidade).
+[ ] COM-2  ROI por captador e por campanha (cruzar último toque × próxima compra
+           Microvix). Agora MENSURÁVEL: a "tarefa de cadência" é a unidade a medir.
+[ ] COM-3  Meta individual + painel de progresso + gamificação leve.
+[ ] ENG-1  Modularizar app.py (~317 KB) em páginas Streamlit por área.
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Duas lições. (1) Construir a PONTE, não mais um diagnóstico: as iterações
+anteriores entregaram dados (RFM, datas, fila). O gargalo real do vendedor leigo
+não é falta de dado — é não saber a PRÓXIMA AÇÃO. A cadência (segmento → tarefa
+datada + script) é a peça que converte diagnóstico em execução, e é a unidade que
+todo o roadmap comercial (MEU DIA, win-back, ROI por toque) passa a consumir.
+(2) Auditar antes de propor: a auditoria read-only mostrou que CAT-1b já estava
+resolvido — fechar uma tarefa "morta" vale tanto quanto abrir uma nova, e evita
+o usuário gastar uma janela de app-parado num problema inexistente.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de ATRIBUIÇÃO (COM-2): dada a "tarefa de cadência" executada
+    (último toque em client_meta) e a próxima compra (retorno Microvix), calcular
+    ROI por canal/segmento/captador — agora que a unidade de trabalho existe,
+    isto é mensurável. Puro, testável, sem tocar UI.
+(b) Helper puro de META/PROGRESSO (COM-3): dada a meta do mês e as vendas até
+    aqui, calcular "quanto falta / ritmo necessário por dia" para a home MEU DIA.
+(c) Continuar tudo que toca .py de produção (CAD-FIX/PV-FIX/SEC-1) como tarefa
+    manual de app parado na PARTE D.
+
+
+================================================================================
+ITERAÇÃO 25 — 03/06/2026 03:04 (execução autônoma horária, slot das 03h)
+================================================================================
+Backup desta noite: "the builder/Backup 03 03 06 2026" (robocopy, 92 arquivos,
+9,65 MB; SHA-256 conferido idêntico em app.py/config.py/requirements.txt). Saúde
+do app: py_compile de app.py/config.py/_migrate_to_cloud.py/modules OK; suíte
+487 → 507 testes (todos verdes; +20 do novo helper). Servidor permaneceu DESLIGADO
+(não inicio o app — é controlado pelo usuário). Nenhum .py de produção tocado:
+git status mostra só os arquivos NOVOS desta noite (modules/metas.py,
+tests/test_metas.py) + os já pendentes da migração de nuvem.
+
+--------------------------------------------------------------------------------
+PARTE A — AS QUATRO ANÁLISES (o vendedor, o designer, o executivo, o engenheiro)
+--------------------------------------------------------------------------------
+
+[1] VENDEDOR LEIGO DE ÓTICA (quer aprender a vender e bater meta)
+  + A cadência da Iter-24 me deu o "o que falar e pra quem". Faltava a outra
+    metade da minha angústia: "estou indo bem no mês ou vou levar bronca?". Hoje
+    eu não sei — só vejo o número de vendas solto, sem referência.
+  − Quero abrir o app e ver no topo: "você está em 53% da meta, faltam R$X, e pra
+    bater precisa vender R$Y por dia nos dias que sobram". Isso me dá direção e
+    me acalma (ou me acende o alerta) logo de manhã.
+  → O helper desta noite responde exatamente isso: %, quanto falta, ritmo/dia e
+    um farol 🟢/🟡/🔴. É o cabeçalho que a tela MEU DIA precisava ter.
+
+[2] DESIGNER RENOMADO (marca, hierarquia, acessibilidade)
+  + Progresso pede UM número-herói (o %) + UMA cor de status, não uma tabela. O
+    helper já entrega "pct_str" pronto ("53%") e um "farol" textual+emoji para o
+    card — cor é só reforço, o status vem como rótulo ("Atrasado"/"No ritmo").
+  − Cuidado de acessibilidade que reforço: o farol NUNCA deve ir sozinho; sempre
+    com o "status_label" ao lado (já entregue). Verde/amarelo/vermelho confunde
+    daltônico — o texto é o canal primário (mesma linha do UX-3).
+  − A barra de progresso ganha um marcador de "esperado até hoje" (esperado_ate_
+    hoje no dict): mostra se a barra cheia está adiantada ou atrasada vs. a data,
+    não só vs. o mês inteiro. Esse é o detalhe que separa um KPI bonito de um útil.
+
+[3] EXECUTIVO COMERCIAL (40 anos, melhor diretor comercial — foco em cobrança)
+  + AGORA virou cobrável. Cadência (Iter-24) deu a tarefa; meta/ritmo (hoje) dá o
+    PLACAR. "Cobrar execução" sem placar é palpite; com ritmo necessário/dia e
+    projeção de fechamento eu tenho a conversa de 1:1 inteira em uma linha.
+  + seller_progress() me entrega o RANKING pronto (posição 1..N por % da meta) —
+    é a espinha da gamificação (COM-3) e o que faz o time competir saudável.
+  + team_summary() rola pra cima: meta da loja, quantos bateram, quantos no verde.
+    É a visão do gerente/regional — a mesma peça serve vendedor, gerente e diretor.
+  − Próxima alavanca que isto destrava: cruzar ESTE placar com a cadência executada
+    (COM-2/atribuição) pra responder "qual toque puxou a venda que me colocou no
+    ritmo". O placar é o numerador; a atribuição será o "por quê".
+
+[4] ENGENHEIRO SÊNIOR (fintech/CRM/segurança)
+  + Mantido o padrão maduro: módulo PURO (stdlib calendar + dateutils), sem I/O,
+    sem pandas, sem estado — 20 testes cobrindo bordas reais (1º dia sem dia
+    fechado, último dia, meta batida, sem meta, feriado como string, ranking).
+    Suíte 507 verde. Peça pronta para a UI absorver com app parado.
+  + Decisão consciente: pace() EXIGE 'today' (não chama date.today()). Mantém o
+    módulo determinístico/testável; o relógio entra só na fiação (camada impura).
+  − DÍVIDA DE SEGURANÇA SEC-1 SEGUE ABERTA e reconfirmada AO VIVO nesta noite:
+    data/email_config.json tem "brevo_api_key":"xkeysi…" em PLAINTEXT (pasta
+    OneDrive) e secure_store.SENSITIVE_KEYS continua só ("token","sefaz_cert_b64",
+    "sefaz_cert_password") — a chave Brevo NÃO está protegida. Tratar como vazada:
+    rotacionar + mover pro vault. É o maior risco do projeto. (Detalhe na PARTE D.)
+  − app.py monolítico (~317 KB, ENG-1) e migração de nuvem em curso seguem como
+    estavam; por isso, de novo, tudo aditivo e isolado.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK (Salesforce / RD Station / Dynamics / Linx Microvix)
+--------------------------------------------------------------------------------
+Todo CRM consolidado coloca o PLACAR DA META no topo do painel do vendedor, e
+sempre com a mesma anatomia: realizado vs. cota + ritmo + projeção + farol.
+  * Salesforce "Forecast/Pace" — projeção de fechamento contra a cota do período.
+  * RD Station "Metas"         — quanto falta e quanto vender por dia restante.
+  * MS Dynamics "Goals"        — realizado vs. esperado-até-hoje, com indicador.
+  * Linx Microvix / varejo     — meta da loja rateada nos dias de operação do mês.
+O gap do Pepper era ter a tarefa (cadência) mas nenhum placar para cobrá-la. Esta
+noite entrega o placar como peça pura, na anatomia que os 4 CRMs usam.
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo: opção (b) do "próximo alvo" da Iter-24 e item COM-3 do roadmap — o helper
+PURO de META/PROGRESSO, o placar que faltava em cima da cadência.
+
+ENTREGUE (não importado pelo app → risco ZERO):
+  1) NOVO modules/metas.py — STDLIB pura (calendar) + dateutils, sem I/O/rede/estado:
+       - month_bounds(today): 1º e último dia do mês.
+       - count_days(ini, fim, use_business_days=, work_sundays=, holidays=):
+         dias do intervalo inclusivo; modo "dias corridos" (varejo de shopping,
+         padrão) ou "dias úteis" (exclui domingos e feriados; feriado aceita
+         date ou "DD/MM/AAAA"/ISO via dateutils).
+       - pace(meta, realizado, today, ...): o quadro completo — pct/pct_str,
+         falta, dias_no_mes/decorridos/restantes, meta_diaria, ritmo_atual,
+         ritmo_necessario, esperado_ate_hoje, gap, projecao, projecao_pct_meta,
+         status + status_label + farol 🟢/🟡/🔴. Convenção de dias justa
+         (decorridos = dias FECHADOS; restantes = inclui hoje).
+       - seller_progress(sellers, today, ...): RANKING por % da meta com "posicao"
+         (1=líder); preserva campos extras (loja, captador); sem-meta vai pro fim.
+       - team_summary(sellers, today, ...): agrega meta/realizado da loja/equipe e
+         roda pace() no total + qtd_vendedores/qtd_meta_batida/qtd_no_ritmo.
+  2) NOVO tests/test_metas.py (+20, todos passam) — bordas reais: 1º dia (sem dia
+     fechado → ritmo/projeção None), último dia (ritmo necessário == falta), meta
+     batida, sem meta (não quebra), dias úteis com domingos/feriado-string,
+     projeção coerente com ritmo, ranking ordenado + posição, agregação da equipe.
+
+Por que isto destrava o roadmap: define o CONTRATO do "placar de meta" que UX-1
+(cabeçalho do MEU DIA), UX-2 (card de KPI) e COM-3 (gamificação/ranking) vão
+consumir, e dá o numerador que a futura atribuição (COM-2) vai explicar. Junto
+com a cadência (Iter-24), o vendedor passa a ter "o que fazer hoje" + "como estou
+no mês" — as duas perguntas que abrem todo CRM de vendas.
+
+NADA exigiu intervenção manual nesta execução (tudo aditivo/isolado).
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (mesma lista; itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+A lista da Iter-24 segue VÁLIDA e sem alterações de prioridade. Reconfirmações e
+o único item novo desta noite:
+
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa com "xkeysi…"; reconfirmada
+           AO VIVO na Iter-25). Depois: adicionar "brevo_api_key" a
+           secure_store.SENSITIVE_KEYS; mover o valor p/ o vault; email_sender ler
+           do vault com fallback legado; limpar a chave do JSON; testar envio.
+[ ] CAD-FIX-1 [APP PARADO] Ligar modules/cadencia.py na UI (MEU DIA + Cadência/
+           win-back). Detalhes na Iter-24, PARTE D.
+[ ] META-FIX-1 [APP PARADO] (NOVO) Ligar modules/metas.py no cabeçalho do MEU DIA
+           e no painel de gerente:
+      (a) MEU DIA: p = metas.pace(meta_do_vendedor, realizado_no_mes, date.today())
+          e renderizar o card-herói: p["pct_str"], p["farol"]+p["status_label"],
+          "faltam R${p['falta']}", "ritmo necessário R$/dia {p['ritmo_necessario']}",
+          com barra de progresso marcando p["esperado_ate_hoje"].
+      (b) GERENTE: metas.seller_progress(lista_vendedores, date.today()) para o
+          RANKING (gamificação) e metas.team_summary(...) para o resumo da loja.
+      (c) Fonte dos números: meta vem de loja_config/cadastro do vendedor; o
+          "realizado_no_mes" vem do somatório de vendas Microvix do mês corrente.
+          Operação de shopping abre todo dia → manter o padrão (dias corridos);
+          se alguma loja fecha domingo, passar use_business_days=True + feriados.
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse de
+           data). Detalhes na Iter-23/24.
+[ ] DOC-1 / BACKUP-RETENCAO  Conforme Iter-24 (limpar backups antigos — 19 hoje,
+           manter ~14; o classificador nega minha exclusão → ação manual).
+[x] CAT-1b RESOLVIDO (Iter-24).
+Roadmap de produto (UX-1/2/3, COM-2/3, ENG-1): inalterado — ver Iter-24.
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Diagnóstico → ação → PLACAR. A Iter-24 transformou segmento em tarefa (o que
+fazer). Mas tarefa sem placar não é cobrável: o vendedor não sabe se o esforço do
+dia basta, e o gerente não tem como cobrar com número. O par cadência+meta fecha
+o ciclo que todo CRM tem no topo da tela — "o que faço agora" e "como estou no
+mês". Reforço da disciplina que vem funcionando: peça PURA + testes de borda +
+fiação manual com app parado = evolução sem nunca arriscar a loja em produção de
+madrugada. E manter pace() determinístico (today injetado, sem relógio interno)
+foi a escolha que deixou os 20 testes triviais de escrever e à prova de flakiness.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de ATRIBUIÇÃO (COM-2) — agora com numerador pronto: cruzar a
+    cadência executada (último toque em client_meta) × próxima compra (retorno
+    Microvix) para responder "qual toque/canal/segmento puxou o realizado do mês".
+    metas.py dá o placar; cadencia.py dá o toque; falta a ponte que liga toque→venda.
+    Puro, testável, sem tocar UI.
+(b) Helper puro de STREAK/CONSISTÊNCIA p/ gamificação (COM-3): dado o histórico de
+    metas batidas por mês/dia, calcular sequência atual e recordes — o "engajamento"
+    que RD/Salesforce usam para manter o time no app. Puro, testável.
+(c) Continuar tudo que toca .py de produção (CAD-FIX/META-FIX/PV-FIX/SEC-1) como
+    tarefa manual de app parado na PARTE D.
+
+
+================================================================================
+ITERAÇÃO 26 — 03/06/2026 04:05 (execução noturna automática do builder-app)
+================================================================================
+Backup desta noite: "the builder/Backup 04 03 06 2026" (90 arquivos, 0 falhas;
+integridade conferida por SHA-256 em app.py/config.py/cadencia.py/metas.py).
+Saúde do app: py_compile limpo + suíte 522 verde (eram 507; +15 desta noite).
+App server permanece sob controle do usuário (não foi iniciado nem parado).
+
+--------------------------------------------------------------------------------
+PARTE A — OS QUATRO OLHARES
+--------------------------------------------------------------------------------
+[1] VENDEDOR LEIGO (quer aprender a vender e melhorar resultado)
+  + Agora eu teria as DUAS metades que faltavam: "o que faço hoje" (cadência) e
+    "como estou no mês" (meta). O que eu nunca soube responder pro meu gerente é:
+    "valeu a pena? o WhatsApp que mandei virou venda?". Essa peça de atribuição é
+    a resposta — ela me mostra que aquele toque puxou a venda, e isso me dá
+    confiança pra repetir o que funciona em vez de mandar mensagem no escuro.
+  − Continuo sem ver NADA disso na tela: cadência, meta e atribuição estão prontas
+    como peça mas ainda não ligadas no app. Pro vendedor leigo, função que não
+    aparece não existe. As fiações CAD-FIX-1 / META-FIX-1 seguem pendentes.
+
+[2] DESIGNER RENOMADO (BR)
+  + A atribuição fecha uma narrativa visual forte de três cartões no topo do MEU
+    DIA: "FAÇA" (cadência) → "VOCÊ ESTÁ AQUI" (meta/farol) → "O QUE FUNCIONOU"
+    (atribuição por canal). É a história que todo dashboard de vendas bom conta.
+  + O contrato já entrega rótulos prontos pra UI (origem 'atribuído'/'Orgânico',
+    pct_valor, ticket_medio, lag_medio) — dá pra desenhar um gráfico de rosca de
+    participação por canal sem cálculo na camada visual.
+  − Risco de design: "Orgânico" não pode parecer fracasso. Ao desenhar, separar
+    visualmente "venda que a cadência puxou" de "venda que veio sozinha" sem
+    pintar a segunda de vermelho — é referência de baseline, não erro.
+
+[3] DIRETOR COMERCIAL (40 anos, premiado)
+  + ESTE é o número que eu cobro. Cadência sem atribuição é atividade; atribuição
+    é RESULTADO. Com channel_performance() eu finalmente pergunto "qual canal
+    converte?" e realoco esforço: se WhatsApp converte 18% e e-mail 3%, a régua
+    muda na segunda-feira. É decisão de alocação, não achismo.
+  + taxa_conversao por canal + ticket_medio por canal = o quadro que eu levo pra
+    reunião de resultado. Junto com o placar de meta (Iter-25), tenho diagnóstico
+    completo: quanto falta, o que estou fazendo e o que está dando retorno.
+  − Falta o elo de tempo no painel: "lag_medio" (dias entre toque e venda) já vem
+    calculado — ótimo —, mas só vira gestão quando estiver na tela do gerente.
+    META-FIX-1 + a futura ATRIB-FIX precisam entrar juntas pra fechar o ciclo.
+
+[4] ENGENHEIRO SÊNIOR (fintech/CRM/segurança)
+  + Mantida a disciplina madura: módulo PURO (stdlib + dateutils), sem I/O, sem
+    pandas, sem estado, determinístico — atribuição é função pura dos dados de
+    entrada, não chama relógio. 15 testes cobrindo bordas reais (toque após a
+    venda não credita, fora da janela vira orgânico, empate de data, valor BR
+    '1.234,56', conversão por canal). Suíte 522 verde. Risco de produção ZERO:
+    nada importa o módulo ainda.
+  + Reúso correto: parse de data e valor passam por dateutils (mesma classe dos
+    bugs de data já corrigidos) — não reinventei parser, não reintroduzi o bug.
+  − DÍVIDA DE SEGURANÇA SEC-1 SEGUE ABERTA e reconfirmada AO VIVO nesta noite:
+    data/email_config.json tem "brevo_api_key":"xkeysi…" em PLAINTEXT (pasta
+    OneDrive sincronizada) e secure_store.SENSITIVE_KEYS continua só
+    ("token","sefaz_cert_b64","sefaz_cert_password") — a chave Brevo NÃO está
+    protegida. Tratar como vazada: rotacionar + mover pro vault. Maior risco do
+    projeto, terceira reconfirmação. (Detalhe na PARTE D.)
+  − app.py monolítico (~317 KB, ENG-1) e migração de nuvem em curso seguem como
+    estavam; por isso, de novo, tudo aditivo e isolado.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK (Salesforce / RD Station / Dynamics / Linx Microvix)
+--------------------------------------------------------------------------------
+Todo CRM consolidado tem, além da tarefa e do placar, o RELATÓRIO DE INFLUÊNCIA —
+qual ação puxou a receita:
+  * Salesforce "Campaign Influence" — crédito da receita às interações anteriores.
+  * RD Station "Atribuição"         — qual canal/origem converteu a oportunidade.
+  * MS Dynamics "Attribution"       — toque last/first creditado pela receita.
+  * Linx/varejo "retorno por ação"  — venda casada com a ação de relacionamento.
+O Pepper já tinha a tarefa (cadência, Iter-24) e o placar (meta, Iter-25); faltava
+o terceiro pilar. Esta noite entrega a ATRIBUIÇÃO como peça pura, no modelo
+last/first-touch com janela — a mesma anatomia que os 4 CRMs usam.
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo: opção (a) do "próximo alvo" da Iter-25 e item COM-2 do roadmap — o helper
+PURO de ATRIBUIÇÃO que liga toque → venda, fechando o trio cadência/meta/retorno.
+
+ENTREGUE (não importado pelo app → risco ZERO):
+  1) NOVO modules/atribuicao.py — STDLIB pura + dateutils, sem I/O/rede/estado:
+       - attribute_sales(touches, sales, janela_dias=30, modelo="last"|"first"):
+         credita cada venda ao toque do mesmo cliente dentro da janela
+         [data_venda - janela, data_venda]; toque depois da venda NÃO credita;
+         venda sem toque elegível = ORGÂNICA. Devolve cópia da venda enriquecida
+         com atribuido/canal/segmento/toque_data/lag_dias/origem/_valor.
+       - attribution_summary(attributed, dimensao="canal"|"segmento"|"origem"):
+         agrega vendas/valor/ticket_medio/lag_medio por dimensão + '_total' e
+         pct_valor (participação % de cada balde no valor total).
+       - channel_performance(touches, sales, ...): cruza toques disparados ×
+         vendas creditadas → toques, vendas_atribuidas, valor, ticket_medio e
+         taxa_conversao (%) por canal — o quadro de "onde investir o esforço".
+       - utilitários puros: _to_float aceita padrão BR ('1.234,56') e US;
+         _to_date via dateutils (date/'DD/MM/AAAA'/ISO); empate de data no
+         last-touch resolve pelo último input (estável).
+  2) NOVO tests/test_atribuicao.py (+15, todos passam) — bordas reais: last/first
+     touch, toque após a venda, fora da janela, mesmo dia (lag 0), sem toque,
+     empate de data, datas/valores em texto BR, agregação por canal com pct,
+     ticket/lag médio, conversão por canal, validação de parâmetros.
+
+Por que isto destrava o roadmap: completa o TRIO que todo CRM tem —
+  cadência (o que fazer) → meta (como estou) → atribuição (o que funcionou).
+metas.py deu o numerador do realizado; atribuicao.py agora EXPLICA esse numerador
+(qual canal/segmento/toque puxou), e channel_performance dá o número que o gerente
+usa pra realocar esforço. É a ponte toque→venda que o "próximo alvo (a)" pedia.
+
+NADA exigiu intervenção manual nesta execução (tudo aditivo/isolado).
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa com "xkeysi…"; reconfirmada
+           AO VIVO na Iter-26 — 3ª vez). Depois: adicionar "brevo_api_key" a
+           secure_store.SENSITIVE_KEYS; mover o valor p/ o vault; email_sender ler
+           do vault com fallback legado; limpar a chave do JSON; testar envio.
+[ ] CAD-FIX-1 [APP PARADO] Ligar modules/cadencia.py na UI (MEU DIA + Cadência/
+           win-back). Detalhes na Iter-24, PARTE D.
+[ ] META-FIX-1 [APP PARADO] Ligar modules/metas.py no cabeçalho do MEU DIA e no
+           painel de gerente (card-herói de meta/farol + ranking). Iter-25, PARTE D.
+[ ] ATRIB-FIX-1 [APP PARADO] (NOVO) Ligar modules/atribuicao.py no painel de
+           gerente como relatório "O QUE FUNCIONOU":
+      (a) Fonte dos TOQUES: histórico de cadência executada — o último toque
+          registrado por cliente em client_meta (canal/segmento/data do toque).
+      (b) Fonte das VENDAS: retorno Microvix do período (codigo_cliente, data,
+          valor) — mesmo somatório que alimenta o "realizado_no_mes" da meta.
+      (c) Render: perf = atribuicao.channel_performance(toques, vendas, janela_dias=30)
+          → tabela/rosca por canal (toques, vendas_atribuidas, taxa_conversao,
+          ticket_medio); e summ = atribuicao.attribution_summary(
+          atribuicao.attribute_sales(toques, vendas), dimensao="segmento") para
+          ver qual SEGMENTO puxou receita. Cuidado de UX: "Orgânico" é baseline,
+          não fracasso — não pintar de vermelho (ver PARTE A, olhar do designer).
+      (d) Janela: 30 dias é o padrão; alinhar com a régua de pós-venda
+          (D+1/7/30/90) se for medir toque de reativação de prazo mais longo.
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse de
+           data). Detalhes na Iter-23/24.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/": 20 hoje, manter
+           ~14 (apagar ~6 mais antigos — Backup 22/23/30/31 05 2026 etc.). O
+           classificador de arquivos nega a MINHA exclusão → ação manual.
+[x] CAT-1b RESOLVIDO (Iter-24).
+Roadmap de produto (UX-1/2/3, COM-2/3, ENG-1): COM-2 (atribuição) agora tem a
+peça pura entregue; resta a fiação ATRIB-FIX-1. Demais itens inalterados (Iter-24).
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Diagnóstico → ação → placar → ATRIBUIÇÃO. As Iters 24/25 deram "o que fazer" e
+"como estou"; sem o terceiro pilar, o ciclo não aprende — a loja repete a mesma
+régua sem saber qual canal converte. Atribuição é o que transforma atividade em
+aprendizado: separa a venda que a cadência puxou da venda orgânica e dá a
+taxa_conversao por canal que o gerente usa pra realocar esforço. Reforço da
+disciplina que vem funcionando há várias noites: peça PURA + testes de borda +
+fiação manual com app parado = evolução sem nunca arriscar a loja em produção de
+madrugada. E manter a função determinística (sem relógio interno, atribuição é
+função pura dos dados) deixou os 15 testes triviais e à prova de flakiness — mesma
+escolha que funcionou em metas.py.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de STREAK/CONSISTÊNCIA p/ gamificação (COM-3): dado o histórico de
+    metas batidas por mês, calcular sequência atual e recordes — o "engajamento"
+    que RD/Salesforce usam pra manter o time no app. Puro, testável.
+(b) Helper puro de COBERTURA DE CADÊNCIA: % da base elegível que recebeu o toque
+    devido no prazo (toques feitos / toques que a cadência mandou) — o "SLA de
+    relacionamento" que fecha o loop com a atribuição (toque feito → venda). Puro.
+(c) Continuar tudo que toca .py de produção (CAD-FIX/META-FIX/ATRIB-FIX/PV-FIX/
+    SEC-1) como tarefa manual de app parado na PARTE D.
+
+
+================================================================================
+ITERAÇÃO 27 — 03/06/2026 22:04 (execução noturna automática do builder-app)
+================================================================================
+Backup desta noite: "the builder/Backup 22 03 06 2026" (robocopy, 198 arquivos,
+11,06 MB; integridade conferida por SHA-256 — app.py, config.py, modules/metas.py,
+modules/atribuicao.py e modules/cadencia.py IDÊNTICOS ao original). Servidor do app
+permanece sob controle do usuário (não iniciado nem parado). Nenhum .py de produção
+tocado: git status mostra só os arquivos NOVOS desta noite (modules/streaks.py,
+tests/test_streaks.py) + os já pendentes da migração de nuvem.
+
+>>> SAÚDE DA SUÍTE — ACHADO IMPORTANTE (vira tarefa do usuário, ver PARTE D):
+A suíte NÃO está mais 100% verde como nas Iters 24–26. Rodando do diretório-raiz
+(como o Rodar_Testes.bat faz): 466 testes, 459 PASSAM e 7 dão ERRO — TODOS no
+test_auth (setUpClass). Causa diagnosticada (read-only): a migração de nuvem EM
+CURSO (não commitada) refatorou modules/auth.py — o antigo CONSTANTE de módulo
+`auth._PATH` virou a FUNÇÃO `auth._get_path()` (que delega para o novo
+modules/data_dir.data_path). O tests/test_auth.py (Iter-19) ainda faz
+`cls._prod_path = auth._PATH` e monkeypatcha `auth._PATH` para isolar — atributo
+que não existe mais → AttributeError no setUpClass.
+  • Esses 7 erros são PRÉ-EXISTENTES (vêm da migração do usuário, não desta noite):
+    confirmado por git status — só toquei streaks.py/test_streaks.py.
+  • RISCO ATUAL = BAIXO: o erro acontece no setUpClass, ANTES do corpo do teste
+    rodar; logo NENHUM teste de auth escreve em data/users.json hoje (o guard de
+    isolamento nem chega a ser exercitado). Por isso NÃO "consertei" o teste à
+    noite, sem você presente: se eu reescrever o monkeypatch errado durante uma
+    migração mid-flight, um teste poderia passar a ESCREVER no users.json de
+    PRODUÇÃO. A correção certa depende de como a migração resolve o caminho (lazy
+    via _get_path? cache?). Fica como tarefa precisa na PARTE D (AUTH-TEST-FIX).
+Saúde do código novo: py_compile limpo; suíte subiu de 443 → 466 (+23, exatamente
+os testes desta noite); test_streaks isolado 23/23 verde.
+
+--------------------------------------------------------------------------------
+PARTE A — OS QUATRO OLHARES
+--------------------------------------------------------------------------------
+[1] VENDEDOR LEIGO (quer aprender a vender e melhorar resultado)
+  + Bater a meta UMA vez é sorte; o que meu gerente quer ver — e o que me dá
+    orgulho — é a CORRENTE: "3 meses seguidos na meta". A peça desta noite acende
+    esse 🔥 e me diz quanto falta pro próximo marco (3/6/12/24 meses). É o tipo de
+    coisa que me faz abrir o app no dia 1º do mês com vontade de não quebrar a
+    sequência — exatamente o que falta hoje pra eu criar o hábito.
+  − Continuo sem ver NADA disso na tela: cadência, meta, atribuição e agora streak
+    estão prontas como peça, mas ainda não ligadas no app. Pro vendedor leigo,
+    função que não aparece não existe. As fiações (PARTE D) seguem pendentes.
+
+[2] DESIGNER RENOMADO (BR)
+  + Streak fecha a anatomia do cabeçalho do MEU DIA com 4 cartões que contam uma
+    história completa: "FAÇA" (cadência) → "VOCÊ ESTÁ AQUI" (meta/farol) → "O QUE
+    FUNCIONOU" (atribuição) → "SUA CONSTÂNCIA" (streak/badge). O selo
+    (Bronze/Prata/Ouro/Lenda) é o elemento lúdico que faltava pra dar identidade
+    de marca à gamificação.
+  + O contrato já entrega rótulos prontos: "nivel", "taxa_str" ("67%"),
+    "marcos_atingidos", "proximo_marco"/"faltam_para_marco" e uma "mensagem" na
+    voz Chilli Beans — dá pra desenhar o card sem cálculo na camada visual.
+  − Cuidado de acessibilidade (linha do UX-3): o 🔥/selo NUNCA vai sozinho; sempre
+    com o número e o rótulo textual ("3 meses seguidos", "Bronze"). Cor/emoji é
+    reforço, nunca o canal único — daltônico precisa do texto.
+
+[3] DIRETOR COMERCIAL (40 anos, premiado)
+  + Constância é o que eu compro num vendedor. Um que bate 100% em 3 meses e some
+    no 4º vale menos que um 90% TODO mês — previsibilidade é receita. O ranking de
+    constância (seller_streaks) me dá essa leitura que a meta do mês isolada esconde:
+    "taxa de acerto" (quantos dos últimos N meses bateu) + "recorde" me dizem em
+    quem confiar pra expandir e quem precisa de coaching de disciplina, não de pico.
+  + É o complemento certo do placar (Iter-25): metas.seller_progress ranqueia o MÊS;
+    streaks.seller_streaks ranqueia a CONSTÂNCIA. Junto com a atribuição (Iter-26),
+    eu tenho o vendedor inteiro: ritmo do mês, o que ele faz, o que converte e se
+    ele sustenta resultado. É a conversa de 1:1 e de promoção fundamentada em dado.
+  − Falta ligar na tela do gerente (COM-3). Enquanto for peça, é diagnóstico meu,
+    não cobrança do time.
+
+[4] ENGENHEIRO SÊNIOR (fintech/CRM/segurança)
+  + Mantida a disciplina madura: módulo PURO (stdlib re/datetime + dateutils), sem
+    I/O, sem rede, sem pandas, sem estado, determinístico — streak é função pura do
+    histórico. 23 testes cobrindo bordas reais (run só no fim conta; último miss
+    zera atual mas não recorde; ordem de entrada embaralhada; 'bateu' explícito vs.
+    realizado>=meta; date/BR/AAAA-MM; marcos; ranking com posição). Risco de
+    produção ZERO: nada importa o módulo ainda.
+  + Reúso correto: leitura de data passa por dateutils (mesma classe dos bugs de
+    data já corrigidos), não reinventei parser.
+  − ACHADO NOVO (vira tarefa): a suíte deixou de ser 100% verde — 7 erros em
+    test_auth por causa do refactor `auth._PATH`→`_get_path()` da migração de nuvem
+    (detalhe no topo + PARTE D, AUTH-TEST-FIX). Não é regressão minha; é o teste
+    correndo atrás do código migrado. Importante: a rede de segurança da AUTH está
+    cega até essa correção — qualquer mudança em login/permissões hoje não tem
+    teste pegando regressão.
+  − DÍVIDA DE SEGURANÇA SEC-1 SEGUE ABERTA (4ª reconfirmação AO VIVO nesta noite):
+    data/email_config.json tem "brevo_api_key":"xkeysi…" em PLAINTEXT (pasta
+    OneDrive sincronizada) e secure_store.SENSITIVE_KEYS continua só
+    ("token","sefaz_cert_b64","sefaz_cert_password"). Tratar como vazada: rotacionar
+    + mover pro vault. Maior risco do projeto. (Detalhe na PARTE D.)
+  − app.py monolítico (~317 KB, ENG-1) e migração de nuvem em curso seguem como
+    estavam; por isso, de novo, tudo aditivo e isolado.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK (Salesforce / RD Station / Dynamics / Linx Microvix)
+--------------------------------------------------------------------------------
+Todo CRM/ferramenta de gamificação de vendas usa a SEQUÊNCIA como motor de
+engajamento — não basta o resultado pontual, o que prende o time é não quebrar a
+corrente:
+  * Salesforce + Spinify "Streaks/Badges" — selo por metas batidas em sequência.
+  * RD Station "Conquistas"               — marcos de consistência por vendedor.
+  * MS Dynamics Gamification              — pontos por manter o ritmo no tempo.
+  * Varejo/óticas (mural de loja)         — "X meses seguidos na meta" exposto.
+O Pepper já tinha a tarefa (cadência), o placar (meta) e a atribuição; faltava a
+camada de TEMPO LONGO. Esta noite entrega o STREAK/CONSISTÊNCIA como peça pura, na
+mesma anatomia (sequência atual + recorde + taxa + marcos/badge) que essas
+ferramentas usam — e um ranking de constância pra fechar a gamificação (COM-3).
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo: opção (a) do "próximo alvo" da Iter-26 e item COM-3 do roadmap — o helper
+PURO de STREAK/CONSISTÊNCIA, a camada de engajamento de longo prazo sobre a meta.
+
+ENTREGUE (não importado pelo app → risco ZERO):
+  1) NOVO modules/streaks.py — STDLIB pura (re/datetime) + dateutils, sem I/O/rede/
+     estado:
+       - Contrato de "período": cada item do histórico diz QUANDO (periodo|mes|
+         competencia|label|data — aceita "AAAA-MM", date, "DD/MM/AAAA"/ISO,
+         normalizado pro mês) e SE bateu ('bateu' explícito; senão realizado>=meta).
+       - current_streak(hist): sequência consecutiva terminando no período MAIS
+         RECENTE (último miss zera). longest_streak(hist): maior sequência do
+         histórico (sobrevive à atual zerada).
+       - marcos_atingidos / proximo_marco: marcos 3/6/12/24 (badges).
+       - streak_summary(hist): quadro pronto pra UI — periodos_total, batidas_total,
+         taxa/taxa_str, streak_atual, streak_recorde, ativo (corrente viva?),
+         ultimo_periodo, marcos_atingidos, proximo_marco/faltam_para_marco, nivel
+         (Começando/Bronze/Prata/Ouro/Lenda derivado do RECORDE) e mensagem (voz
+         Chilli Beans).
+       - seller_streaks(sellers, historico_key="historico"): RANKING de constância
+         por vendedor (ordena por streak_atual→recorde→taxa), com "posicao" e
+         campos extras (loja/captador) preservados — complemento de
+         metas.seller_progress (que mede o mês; este mede o histórico).
+  2) NOVO tests/test_streaks.py (+23, todos passam) — bordas reais: run só no fim
+     conta; último miss zera atual mas não recorde; recorde no meio do histórico;
+     ordem de entrada embaralhada dá o mesmo resultado; 'bateu' explícito tem
+     precedência; meta 0 não conta; date/BR/AAAA-MM; período sem rótulo é ignorado;
+     marcos e próximo marco; níveis Bronze→Lenda; ranking com posição e campos extras.
+
+Por que isto destrava o roadmap: completa o QUARTETO do cabeçalho do MEU DIA —
+  cadência (o que fazer) → meta (como estou) → atribuição (o que funcionou) →
+  streak (sou constante?). É a peça de ENGAJAMENTO que mantém o time no app dia
+após dia e a espinha da gamificação COM-3, junto com o ranking de meta da Iter-25.
+
+NADA exigiu intervenção minha em produção; o único item que EXIGE você é a
+correção do test_auth (abaixo), que é consequência da SUA migração de nuvem.
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa com "xkeysi…"; reconfirmada
+           AO VIVO na Iter-27 — 4ª vez). Depois: adicionar "brevo_api_key" a
+           secure_store.SENSITIVE_KEYS; mover o valor p/ o vault; email_sender ler
+           do vault com fallback legado; limpar a chave do JSON; testar envio.
+[ ] AUTH-TEST-FIX [APP PARADO] (NOVO — alta prioridade: rede de segurança da AUTH
+           está cega) Consertar tests/test_auth.py após o refactor da migração de
+           nuvem que trocou o CONSTANTE `auth._PATH` pela FUNÇÃO `auth._get_path()`
+           (delega p/ modules/data_dir.data_path). O teste isola apontando
+           `auth._PATH` para um tempfile — atributo que não existe mais → 7 erros
+           em setUpClass. Como corrigir (escolha conforme a migração FINAL):
+             (a) se auth ainda lê o caminho via _get_path() a cada chamada: no
+                 setUp, monkeypatchar modules.data_dir.data_path (ou auth._get_path)
+                 para devolver o tempfile, em vez de setar auth._PATH; ajustar o
+                 guard de mtime (cls._prod_path = auth._get_path()).
+             (b) CONFIRME antes de subir que a suíte de auth NÃO escreve em
+                 data/users.json de produção (o guard de mtime tem que continuar
+                 verde) — hoje ela nem roda o corpo, então o isolamento precisa ser
+                 revalidado com cuidado.
+           Rodar do diretório-raiz: venv\Scripts\python.exe -m unittest discover -s tests
+[ ] CAD-FIX-1 [APP PARADO] Ligar modules/cadencia.py na UI (MEU DIA + Cadência/
+           win-back). Detalhes na Iter-24, PARTE D.
+[ ] META-FIX-1 [APP PARADO] Ligar modules/metas.py no cabeçalho do MEU DIA e no
+           painel de gerente (card-herói de meta/farol + ranking). Iter-25, PARTE D.
+[ ] ATRIB-FIX-1 [APP PARADO] Ligar modules/atribuicao.py no painel de gerente
+           ("O QUE FUNCIONOU" — channel_performance + attribution_summary). Iter-26.
+[ ] STREAK-FIX-1 [APP PARADO] (NOVO) Ligar modules/streaks.py:
+      (a) MEU DIA (vendedor): r = streaks.streak_summary(historico_do_vendedor)
+          → card "SUA CONSTÂNCIA": r["streak_atual"] meses + r["nivel"] (badge) +
+          r["mensagem"]; barra de marcos com r["proximo_marco"]/r["faltam_para_marco"].
+      (b) GERENTE: streaks.seller_streaks(lista_vendedores) para o RANKING de
+          constância (cada vendedor com {"nome","historico":[...]}) ao lado do
+          ranking de meta da Iter-25 (metas.seller_progress).
+      (c) Fonte do HISTÓRICO: para cada mês fechado, {"periodo":"AAAA-MM",
+          "meta":<meta do mês>, "realizado":<vendas Microvix do mês>} — ou
+          {"periodo":..., "bateu":True/False} se você já tiver o veredito salvo.
+          Reaproveite o mesmo somatório de vendas Microvix que alimenta o
+          "realizado_no_mes" da meta (META-FIX-1), só que por mês histórico.
+      (d) Acessibilidade (UX-3): badge/🔥 sempre acompanhado do número e rótulo.
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse de
+           data). Detalhes na Iter-23/24.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/": 21 hoje (com o desta
+           noite), manter ~14 (apagar ~7 mais antigos — Backup 22/23 30/31-05-2026
+           etc.). O classificador de arquivos nega a MINHA exclusão → ação manual.
+[x] CAT-1b RESOLVIDO (Iter-24).
+Roadmap de produto (UX-1/2/3, COM-2/3, ENG-1): COM-3 (gamificação) agora tem as
+DUAS peças puras — ranking de meta (Iter-25) e ranking de constância/streak (hoje);
+resta a fiação STREAK-FIX-1 + META-FIX-1. Demais itens inalterados (Iter-24).
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Duas lições. (1) ENGAJAMENTO é a 4ª pergunta do CRM: as Iters 24–26 deram "o que
+fazer", "como estou" e "o que funcionou" — mas o que faz o vendedor ABRIR o app
+amanhã é a corrente ("não quebrar o streak"). Streak é barato de construir (função
+pura sobre o histórico que a meta já produz) e é a alavanca de hábito que RD/
+Salesforce usam; sem ela, a gamificação fica só no placar do mês. (2) RODAR A
+REGRESSÃO CEDO PEGA A DERIVA: ao validar a suíte ANTES de mexer, descobri que ela
+deixou de ser 100% verde — 7 erros em test_auth nascidos da migração de nuvem do
+usuário, não de mim. A disciplina "backup → regressão → agir" não serve só pra
+proteger MINHA mudança; serve pra FLAGRAR mudanças de terceiros que silenciosamente
+cegaram a rede de testes da AUTH (segurança!). Diagnosticar com precisão (constante
+`_PATH`→função `_get_path`) e devolver como tarefa cirúrgica — em vez de "consertar"
+às cegas durante uma migração mid-flight, arriscando escrever no users.json de
+produção — é a mesma postura "primeiro, não quebrar" que vem segurando a loja.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de COBERTURA DE CADÊNCIA (SLA de relacionamento): % da base
+    elegível que recebeu o toque DEVIDO no prazo (toques feitos / toques que a
+    cadência mandou), por segmento/canal — fecha o loop com a atribuição (toque
+    feito → venda) e com o streak (constância de execução, não só de resultado).
+    Puro, testável, reúsa cadencia.generate_cadence como denominador.
+(b) Helper puro de PROJEÇÃO DE FECHAMENTO multi-mês p/ o gerente: dado o histórico
+    + ritmo atual, projetar fechamento da loja no trimestre (forecast simples).
+(c) Continuar tudo que toca .py de produção (AUTH-TEST-FIX/CAD-FIX/META-FIX/
+    ATRIB-FIX/STREAK-FIX/PV-FIX/SEC-1) como tarefa manual de app parado na PARTE D.
+
+
+================================================================================
+ITERAÇÃO 28 — 03/06/2026 23:04 (execução noturna automática do builder-app)
+================================================================================
+Backup desta noite: "the builder/Backup 23 03 06 2026" (robocopy, 107 arquivos,
+9,76 MB; integridade conferida por SHA-256 — app.py, config.py, requirements.txt,
+modules/cadencia.py e modules/streaks.py IDÊNTICOS ao original). Servidor do app
+permanece sob controle do usuário (não iniciado nem parado). Nenhum .py de produção
+tocado: git status mostra só os arquivos NOVOS desta noite (modules/cobertura_
+cadencia.py, tests/test_cobertura_cadencia.py) + os já pendentes da migração de nuvem.
+
+>>> SAÚDE DA SUÍTE — DUAS LEITURAS (e um ACHADO de runner que vira tarefa, PARTE D):
+Validei a suíte com OS DOIS executores e confirmei a deriva pré-existente do
+test_auth (mesma da Iter-27, da migração de nuvem do usuário):
+  • Rodar_Testes.bat (python -m unittest discover -s tests): ANTES 466 (459 ok +
+    7 ERROS em test_auth/setUpClass) → DEPOIS 489 (482 ok + os MESMOS 7 erros).
+    +23 = exatamente os testes desta noite. Nenhuma falha nova.
+  • pytest -q tests: ANTES 518 ok + 27 erros (auth) → DEPOIS 541 ok + 27 erros.
+    +23 = os testes desta noite.
+  • Os 7/27 erros são PRÉ-EXISTENTES (auth._PATH→_get_path da migração) — segue a
+    tarefa AUTH-TEST-FIX da Iter-27, intocada por mim (git status confirma).
+ACHADO NOVO (RUNNER-GAP, vira tarefa NÃO-urgente): descobri que test_cadencia.py
+(17), test_metas.py (20) e test_atribuicao.py (15) foram escritos como FUNÇÕES
+SOLTAS estilo pytest (def test_...), e o `unittest discover` do Rodar_Testes.bat
+NÃO coleta esse estilo — ou seja, esses 52 testes NUNCA rodaram pelo .bat (só pelo
+pytest, que está instalado: 9.0.3). test_streaks/test_rfm/test_auth usam
+unittest.TestCase e rodam nos dois. Por isso ESCOLHI escrever o teste desta noite
+como unittest.TestCase: ele roda no .bat E no pytest. Conserto sugerido na PARTE D
+(RUNNER-1). py_compile do módulo+teste novos: limpo.
+
+--------------------------------------------------------------------------------
+PARTE A — OS QUATRO OLHARES
+--------------------------------------------------------------------------------
+[1] VENDEDOR LEIGO (quer aprender a vender e melhorar resultado)
+  + Eu já teria "o que fazer hoje" (cadência), "como estou no mês" (meta) e o
+    orgulho da corrente (streak). Mas no fim do dia bate a dúvida honesta: "eu
+    fiz mesmo os contatos que o app mandou, ou deixei passar?". A peça desta noite
+    responde isso pra mim e pro meu gerente, sem dedo apontado: mostra quantos dos
+    toques que a régua pediu eu fiz NO PRAZO, quantos fiz atrasado e quantos perdi.
+    É a diferença entre "achar que acompanhei a base" e SABER.
+  − Continuo sem ver NADA disso na tela: cadência, meta, atribuição, streak e agora
+    cobertura estão prontas como peça, mas ainda não ligadas no app. Pro vendedor
+    leigo, função que não aparece não existe — as fiações (PARTE D) seguem pendentes.
+
+[2] DESIGNER RENOMADO (BR)
+  + Cobertura é o "medidor de combustível" que faltava no painel: um número-herói
+    (taxa de SLA) + farol 🟢/🟡/🔴 + a quebra em quatro baldes (No prazo / Atrasado
+    / Pendente / Perdido). O contrato já entrega "sla_pct_str" ("33%"), "farol" e
+    "status_label" prontos — dá pra desenhar uma barra empilhada de 4 cores sem
+    cálculo na camada visual.
+  − Cuidado de acessibilidade (linha do UX-3) que reforço: o farol NUNCA vai
+    sozinho; sempre com o "status_label" textual ("SLA crítico"/"em atenção"/"em
+    dia") e os números. E "Pendente" (ainda tem prazo) NÃO pode ser pintado como
+    erro junto com "Perdido" — são estados diferentes; por isso o helper os mantém
+    separados e tira "Pendente" do denominador do SLA.
+
+[3] DIRETOR COMERCIAL (40 anos, premiado)
+  + ESTE é o número que separa "régua ruim" de "régua não-executada". Atribuição
+    (Iter-26) me diz qual canal CONVERTE; cobertura me diz se o canal foi sequer
+    USADO. Sem ela, eu cobrava conversão de um time que talvez nem tenha ligado —
+    injustiça que destrói confiança. coverage_by("canal") me mostra que o SLA do
+    WhatsApp está verde e o da Ligação vermelho: aí eu sei que o problema da Ligação
+    é EXECUÇÃO, não o canal. É decisão de gestão de rotina, não achismo.
+  + Junto com o placar de meta (Iter-25) e o streak (Iter-27), fecho o ciclo de
+    cobrança: quanto falta (meta) · o que fazer (cadência) · fiz no prazo?
+    (cobertura) · o que converteu (atribuição) · sou constante? (streak).
+  − Falta ligar na tela do gerente. Enquanto for peça, é diagnóstico meu, não
+    cobrança do time (COB-FIX-1 na PARTE D).
+
+[4] ENGENHEIRO SÊNIOR (fintech/CRM/segurança)
+  + Mantida a disciplina madura: módulo PURO (stdlib + dateutils + reúso de
+    cadencia), sem I/O, sem rede, sem pandas, sem estado, determinístico (today
+    injetado, sem relógio interno). 23 testes cobrindo bordas reais (toque no
+    vencimento conta como no prazo; só toque tardio = atrasado com atraso_dias;
+    pendente fora do denominador do SLA; SLA None quando nada venceu; código
+    float/int normaliza igual; datas BR/ISO; filtro `desde`; encaixe ponta-a-ponta
+    com generate_cadence, inclusive cooldown reduzindo o denominador). Risco de
+    produção ZERO: nada importa o módulo ainda.
+  + Reúso correto: o DENOMINADOR vem de cadencia.generate_cadence (mesma fonte de
+    verdade da próxima ação) e toda data passa por dateutils — não reinventei nem
+    a regra de cadência nem o parser de data.
+  − ACHADO de qualidade (RUNNER-1, não-urgente): o Rodar_Testes.bat (unittest) NÃO
+    executa os testes escritos como funções soltas (cadencia/metas/atribuicao = 52
+    testes invisíveis no .bat). Não é regressão — é cobertura que o gestor PENSA que
+    está rodando e não está. Conserto barato na PARTE D.
+  − DÍVIDA DE SEGURANÇA SEC-1 SEGUE ABERTA (5ª reconfirmação AO VIVO nesta noite):
+    data/email_config.json tem "brevo_api_key":"xkeysi…" em PLAINTEXT (pasta
+    OneDrive sincronizada) e secure_store.SENSITIVE_KEYS continua só
+    ("token","sefaz_cert_b64","sefaz_cert_password"). Tratar como vazada: rotacionar
+    + mover pro vault. Maior risco do projeto. (Detalhe na PARTE D.)
+  − app.py monolítico (~317 KB, ENG-1) e migração de nuvem em curso seguem como
+    estavam; por isso, de novo, tudo aditivo e isolado.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK (Salesforce / RD Station / Dynamics / Linx Microvix)
+--------------------------------------------------------------------------------
+Todo CRM consolidado mede, além de "o que fazer" e "o que converteu", a ADERÊNCIA
+À EXECUÇÃO da régua — o time fez o que o sistema mandou, no prazo?:
+  * Salesforce "Task/Activity completion" — % de tarefas concluídas e no prazo.
+  * RD Station "execução da cadência"     — toques feitos vs. toques previstos.
+  * MS Dynamics "Sequence adherence"      — aderência à sequência de atividades.
+  * Linx/varejo (gestão de loja)          — checklist de relacionamento do dia.
+O Pepper já tinha a tarefa (cadência), o placar (meta), a atribuição e o streak;
+faltava o medidor de EXECUÇÃO. Esta noite entrega a COBERTURA/SLA como peça pura,
+na mesma anatomia (feito no prazo / atrasado / pendente / perdido + taxa + farol)
+que essas ferramentas usam — e fecha o loop com a atribuição: separa "a venda não
+veio porque o canal converte mal" de "a venda não veio porque o toque não foi feito".
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo: opção (a) do "próximo alvo" da Iter-27 e o item de SLA de relacionamento — o
+helper PURO de COBERTURA DE CADÊNCIA, que cruza o que a régua MANDOU com o que o
+time FEZ.
+
+ENTREGUE (não importado pelo app → risco ZERO):
+  1) NOVO modules/cobertura_cadencia.py — STDLIB pura + dateutils + reúso de cadencia:
+       - index_touches(touches, desde=None): indexa o histórico de contato por
+         código de cliente (aceita chaves alternativas de código/data/canal,
+         normaliza código float/int, datas BR/ISO via dateutils; `desde` descarta
+         toques anteriores à emissão da cadência). Tolera lixo/não-dict sem quebrar.
+       - classify_task(task, idx, today): classifica 1 tarefa em no_prazo / atrasado
+         (com atraso_dias) / pendente (prazo aberto) / perdido (vencido sem toque);
+         prefere o toque no prazo quando há os dois; devolve dict pronto pra UI.
+       - coverage_report(tasks, touches, today, desde): quadro do conjunto —
+         contagem dos 4 status, feitos, devidos (já vencidas), coverage_rate
+         (feito a qualquer tempo) e sla_rate (no prazo / devidas) + pct_str + farol
+         🟢/🟡/🔴 + status_label. "Pendente" fica FORA do denominador do SLA (ainda
+         tem prazo); SLA = None quando nada venceu ainda.
+       - coverage_by(..., dimensao="segmento"|"canal"): a mesma leitura quebrada por
+         balde — o "onde a execução está falhando" do gerente.
+       - coverage_from_rfm(rows, touches, ...): atalho ponta-a-ponta que gera o
+         DENOMINADOR via cadencia.generate_cadence e cruza com os toques — a forma
+         que a fiação vai usar (passa base RFM + histórico de contato → SLA pronto).
+  2) NOVO tests/test_cobertura_cadencia.py (+23, todos passam) — unittest.TestCase
+     (roda no .bat E no pytest, ao contrário de cadencia/metas/atribuicao). Cobre
+     bordas reais (toque no vencimento = no prazo; só tardio = atrasado; pendente
+     fora do SLA; perdido com atraso_dias; SLA None sem vencidas; float==int;
+     datas BR/ISO; `desde`; quebra por canal/segmento; dimensão inválida levanta;
+     encaixe com generate_cadence + cooldown reduzindo o denominador).
+
+Por que isto destrava o roadmap: completa o ciclo de gestão de execução — o gerente
+finalmente vê se a régua RODOU (cobertura) antes de cobrar o resultado (meta) ou
+julgar o canal (atribuição). É o "SLA de relacionamento" que o "próximo alvo (a)"
+da Iter-27 pedia, com o denominador vindo da própria cadência (sem duplicar regra).
+
+NADA exigiu intervenção minha em produção. Itens que EXIGEM você (ação humana ou
+app parado) na PARTE D.
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa com "xkeysi…"; reconfirmada
+           AO VIVO na Iter-28 — 5ª vez). Depois: adicionar "brevo_api_key" a
+           secure_store.SENSITIVE_KEYS; mover o valor p/ o vault; email_sender ler
+           do vault com fallback legado; limpar a chave do JSON; testar envio.
+[ ] AUTH-TEST-FIX [APP PARADO] Consertar tests/test_auth.py após o refactor da
+           migração de nuvem (auth._PATH constante → auth._get_path() função). 7
+           erros em setUpClass (unittest) / 27 (pytest). Detalhe na Iter-27, PARTE D.
+[ ] RUNNER-1 [SEM RISCO — pode fazer com o app rodando] (NOVO) Os testes
+           tests/test_cadencia.py (17), tests/test_metas.py (20) e
+           tests/test_atribuicao.py (15) foram escritos como FUNÇÕES soltas estilo
+           pytest e NÃO são coletados pelo `unittest discover` do Rodar_Testes.bat —
+           ou seja, 52 testes existem mas NÃO rodam no .bat (só no pytest 9.0.3, que
+           já está no venv). Dois caminhos:
+             (a) RÁPIDO: trocar a linha do .bat por `venv\Scripts\python.exe -m
+                 pytest -q tests` (coleta TODOS os estilos — passa a contar os 541).
+                 Cuidado: hoje o pytest acusa os 27 erros de auth (ver AUTH-TEST-FIX),
+                 então o .bat passaria a "ficar vermelho" até o auth ser corrigido.
+             (b) UNIFORMIZAR: reescrever esses 3 arquivos como unittest.TestCase
+                 (como test_streaks e o test_cobertura_cadencia desta noite) p/
+                 manter o .bat em unittest. Mais trabalho, zero dependência nova.
+           Recomendo (a) DEPOIS de AUTH-TEST-FIX, pra ter um runner só e verde.
+[ ] COB-FIX-1 [APP PARADO] (NOVO) Ligar modules/cobertura_cadencia.py no painel do
+           gerente como "EXECUÇÃO DA RÉGUA / SLA DE RELACIONAMENTO":
+      (a) DENOMINADOR (tarefas devidas): reaproveitar a base RFM do período e chamar
+          rep = cobertura_cadencia.coverage_from_rfm(rows_rfm, toques, today=date.today(),
+          loja=<loja>). (Ou montar as tarefas via cadencia.generate_cadence e usar
+          coverage_report(tasks, toques).)
+      (b) NUMERADOR (toques feitos): histórico de contato registrado (modules/db.py
+          list de contatos, ou o último toque em client_meta) — cada item com
+          {codigo_cliente, data, canal}. Use `desde=<data de emissão da cadência>`
+          para não contar toques antigos de outra campanha.
+      (c) Render: card-herói com rep["sla_pct_str"] + rep["farol"] +
+          rep["status_label"]; barra empilhada dos 4 status (no_prazo/atrasado/
+          pendente/perdido); e cobertura_cadencia.coverage_by(...,"canal") numa
+          tabela para achar o canal com execução baixa. UX-3: farol sempre com
+          rótulo textual; "Pendente" ≠ "Perdido" (não pintar os dois de vermelho).
+[ ] CAD-FIX-1 [APP PARADO] Ligar modules/cadencia.py na UI (MEU DIA + Cadência/
+           win-back). Detalhes na Iter-24, PARTE D.
+[ ] META-FIX-1 [APP PARADO] Ligar modules/metas.py no cabeçalho do MEU DIA e no
+           painel de gerente (card-herói de meta/farol + ranking). Iter-25, PARTE D.
+[ ] ATRIB-FIX-1 [APP PARADO] Ligar modules/atribuicao.py no painel de gerente
+           ("O QUE FUNCIONOU"). Iter-26, PARTE D.
+[ ] STREAK-FIX-1 [APP PARADO] Ligar modules/streaks.py (SUA CONSTÂNCIA + ranking de
+           constância). Iter-27, PARTE D.
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse de
+           data). Detalhes na Iter-23/24.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/": 22 hoje (com o desta
+           noite), manter ~14 (apagar os ~8 mais antigos — Backup 03/22 30-05-2026,
+           00/01/02/03/22/23 31-05-2026). O classificador de auto-mode NEGA a MINHA
+           exclusão de backups de sessões anteriores (reconfirmado na Iter-28) →
+           ação manual sua, OU me autorize com uma regra de permissão no settings.
+[x] CAT-1b RESOLVIDO (Iter-24).
+Roadmap de produto (UX-1/2/3, COM-2/3, ENG-1): COM-2/COM-3 já têm TODAS as peças
+puras (atribuição + meta + streak + agora cobertura); o que resta é fiação
+(COB/CAD/META/ATRIB/STREAK-FIX) com app parado. Demais itens inalterados (Iter-24).
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Duas lições. (1) EXECUÇÃO antes de JULGAMENTO: as Iters 24–27 ensinaram a régua a
+dizer o que fazer, como estou, o que converteu e se sou constante — mas todas
+assumem que o toque FOI FEITO. A cobertura é o medidor que faltava: sem ela, o
+gerente pode estar cobrando conversão (atribuição) de um time que sequer executou a
+régua, e tratando "régua não-rodada" como "régua ruim". Medir a execução ANTES de
+julgar o resultado é o que todo CRM maduro faz — e o denominador já existia de
+graça em cadencia.generate_cadence, então a peça custou pouco e fechou o ciclo.
+(2) VALIDAR COM O RUNNER REAL revela o que o número esconde: ao rodar a suíte nos
+DOIS executores (o .bat/unittest e o pytest), descobri que 52 testes
+(cadencia/metas/atribuicao) NUNCA rodaram pelo Rodar_Testes.bat por uma diferença
+de estilo (funções soltas não são coletadas por unittest). O .bat dizia "tudo
+verde" sobre uma cobertura que ele nem executava. Por isso escrevi o teste desta
+noite como unittest.TestCase (roda nos dois) e registrei o conserto (RUNNER-1).
+Disciplina "backup → regressão → agir" de novo flagrou uma cegueira de teste — desta
+vez na própria ferramenta de teste.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de PROJEÇÃO DE FECHAMENTO multi-mês p/ o gerente (opção (b) da
+    Iter-27): dado o histórico + ritmo atual, projetar o fechamento da loja no
+    trimestre (forecast simples) — complementa metas.pace (mês) com a visão de
+    período. Puro, testável, reúsa metas/dateutils.
+(b) Helper puro de PRIORIZAÇÃO DA FILA "MEU DIA": combinar cadência (urgência do
+    segmento) × cobertura (tarefas perdidas/atrasadas primeiro) × atribuição (canal
+    que converte) num ÚNICO score de "ligue para este primeiro" — o cérebro da home.
+(c) Continuar tudo que toca .py de produção (COB-FIX/AUTH-TEST-FIX/CAD-FIX/META-FIX/
+    ATRIB-FIX/STREAK-FIX/PV-FIX/SEC-1/RUNNER-1) como tarefa manual na PARTE D.
+
+================================================================================
+ITERAÇÃO 29 — 04/06/2026 00:05 (execução noturna automática do builder-app)
+================================================================================
+Disciplina de sempre: BACKUP -> REGRESSÃO -> AGIR (só aditivo, app pode estar no ar).
+
+Backup criado e verificado: "the builder/Backup 00 04 06 2026" (25 itens; cópia da
+raiz SugestaoCompras excluindo venv/.git/__pycache__/.pytest_cache/the builder).
+Robocopy falhou (exit 16) por causa do caractere acentuado no caminho ("Oticas");
+refeito com PowerShell Copy-Item -LiteralPath, que lida com o Unicode do OneDrive.
+
+Regressão (DOIS executores, como manda a lição RUNNER-1 da Iter-28):
+  * ANTES:  unittest discover -s tests -> 489 testes, 7 erros (482 ok).
+            pytest -q tests             -> 541 passed, 27 erros.
+  * Os 7/27 erros são os PRÉ-EXISTENTES de test_auth (refactor auth._PATH ->
+    _get_path() da migração de nuvem do usuário — NÃO é regressão do builder; ver
+    AUTH-TEST-FIX). Acontecem em setUpClass, antes de qualquer escrita -> risco baixo.
+  * DEPOIS: unittest -> 508 testes, 7 erros (501 ok, +19). pytest -> 560 passed
+            (+19), 27 erros. py_compile de app.py + todos os módulos: OK.
+  * git status confirma: só DOIS arquivos novos meus (modules/fila_prioridade.py,
+    tests/test_fila_prioridade.py). Nada de produção foi tocado.
+
+--------------------------------------------------------------------------------
+PARTE A — OS QUATRO OLHARES
+--------------------------------------------------------------------------------
+[1] VENDEDOR LEIGO DE ÓTICA (quer aprender a vender e bater meta)
+    "O app agora me diz O QUE fazer (cadência), COMO estou (meta), o que FUNCIONOU
+    (atribuição) e se SOU CONSTANTE (streak). Mas de manhã eu só quero saber UMA
+    coisa: por QUEM eu começo? Hoje a lista vem ordenada por segmento — aí eu ligo
+    pro 'Campeão' (que está tranquilo, prazo 7 dias) e esqueço o 'Em Risco' cuja
+    janela JÁ venceu. Eu não tenho cabeça pra cruzar cinco painéis. Queria UMA fila,
+    de cima pra baixo, dizendo 'liga pra este AGORA porque o resgate venceu e o
+    WhatsApp é o que mais converte pra ele'." -> Dor real: falta o cérebro que junta
+    os cinco sinais numa ordem única. É exatamente o alvo (b) que ficou pendente.
+
+[2] DESIGNER RENOMADO (BR)
+    "Cinco painéis paralelos é carga cognitiva. O padrão de mercado é UMA work-queue
+    priorizada com um número/farol por linha e o 'porquê' em uma frase — não cinco
+    abas que o usuário precisa sintetizar de cabeça. O score precisa ser EXPLICÁVEL
+    (mostrar de onde veio: urgência/execução/conversão), senão vira caixa-preta e o
+    vendedor não confia. Mantenha a convenção de farol com RÓTULO textual (UX-3):
+    🔴 'Comece por aqui' / 🟡 'Faça ainda hoje' / 🟢 'Pode esperar' — nunca cor pura."
+
+[3] EXECUTIVO COMERCIAL/MARKETING (40 anos de estrada)
+    "Gestão de loja de ótica vive de foco: o vendedor tem 2h boas de telefone por dia
+    e precisa gastá-las no cliente de MAIOR retorno por minuto. Priorizar por 'o que
+    falhou primeiro' (resgate vencido) protege a receita que está vazando; ponderar
+    pelo canal que converte aumenta o retorno por toque. É o ABC clássico da carteira,
+    só que automático e diário. Sem isso, a régua mais bonita do mundo não vira venda
+    porque o time toca os clientes na ordem errada."
+
+[4] PROGRAMADOR FINTECH/CRM/SEGURANÇA
+    "O score tem que ser PURO e DETERMINÍSTICO (sem relógio interno, pesos
+    explícitos, normalização em [0,1]) pra ser auditável e testável — nada de número
+    mágico não-rastreável decidindo a carteira. Reusar as peças existentes
+    (cobertura.classify_task, atribuicao.channel_performance) em vez de duplicar
+    regra evita divergência de verdade. E o de sempre, ainda aberto: a brevo_api_key
+    EM TEXTO PURO no data/email_config.json sincronizado no OneDrive (SEC-1) — isso é
+    vazamento de credencial, rotacione já."
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK (Salesforce / RD Station / Dynamics / Linx Microvix)
+--------------------------------------------------------------------------------
+A "fila priorizada por score" é o coração da home de todo CRM consolidado:
+  * Salesforce — Einstein Lead/Opportunity Scoring + "Work Queue": ordena a lista de
+    trabalho do dia por um score, com os fatores que mais pesaram visíveis ("why").
+  * MS Dynamics 365 Sales — "Predictive scoring" e o widget "Who to contact next" no
+    Sales Accelerator: a fila do vendedor vem rankeada, não em ordem de cadastro.
+  * RD Station — Lead Scoring (perfil x interesse) prioriza o follow-up comercial.
+  * Linx/varejo (gestão de loja) — "fila/agenda do dia" da carteira priorizada por
+    recência e potencial; o vendedor segue a lista de cima pra baixo.
+Padrão comum: UM número por cliente, ORDEM única, e o "porquê" explicável ao lado.
+Nossa fila_prioridade segue isso com os sinais que JÁ temos (urgência de segmento,
+execução da régua, conversão do canal), sem ML e sem caixa-preta — 100% explicável.
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo (b) da Iter-28 entregue: o "CÉREBRO DA HOME".
+
+  1) NOVO modules/fila_prioridade.py (peça PURA, não importada pelo app):
+     - PESO_URGENCIA/EXECUCAO/CONVERSAO (0.45/0.35/0.20, somam 1.0) — pesos
+       EXPLÍCITOS e overridáveis; execução+urgência dominam, conversão é o desempate.
+     - conversao_relativa(channel_perf): normaliza a taxa_conversao de cada canal
+       (saída de atribuicao.channel_performance) para [0,1] RELATIVO ao melhor canal
+       do período — o score não depende da escala absoluta da loja. Lixo/tudo-zero
+       -> {} (cai no neutro 0.5).
+     - score_task(task, status_info, conv_rel, pesos=): pontua UMA tarefa já
+       classificada -> score 0–100 + componentes {urgencia,execucao,conversao} +
+       motivo de loja ("Resgate vencido há 3 dias + canal que mais converte") +
+       farol com RÓTULO (comece por aqui / faça hoje / pode esperar). Soma de pesos
+       <=0 cai no default sem dividir por zero; prioridade não-numérica não quebra.
+     - build_priority_queue(tasks, touches, channel_perf, today=, desde=, pesos=,
+       incluir_no_prazo=): a fila do MEU DIA pronta — indexa toques e classifica via
+       cobertura_cadencia (reuso, sem duplicar regra), pontua e ORDENA (score desc ->
+       prioridade asc -> nome). Por padrão ESCONDE quem já foi tocado no prazo (não
+       há o que fazer hoje); incluir_no_prazo=True traz tudo (auditoria). `desde`
+       ignora toques de campanha antiga. Tolera lixo/não-dict na lista de tarefas.
+     - queue_summary(scored): resumo p/ card-herói — total, contagem por farol e por
+       status, score médio, e o TOPO ("comece por este: <nome>, <motivo>").
+  2) NOVO tests/test_fila_prioridade.py (+19, todos passam) — unittest.TestCase
+     (roda no .bat E no pytest, lição RUNNER-1). Cobre: normalizações e saturação;
+     conversão relativa (melhor canal, tudo-zero, lixo, neutro); o caso-chave
+     "Em Risco PERDIDO supera Campeão pendente"; componentes e faixa; no_prazo
+     pontua baixo; override de pesos e soma-zero sem divisão por zero; ocultar/
+     incluir no_prazo; `desde` ressuscita tarefa; lixo não quebra; desempate por
+     prioridade; resumo cheio e vazio.
+
+Por que isto destrava o roadmap: fecha o ciclo do QUINTETO. As Iters 24–28 deram
+cinco respostas em cinco painéis; faltava a SÍNTESE — a ordem única de "ligue para
+este primeiro". A fila_prioridade é o cérebro da home que combina urgência (cadência)
+x execução (cobertura) x conversão (atribuição) num só score explicável. É a peça
+que transforma "cinco relatórios" em "uma lista acionável" — o que separa um painel
+de um CRM que o vendedor leigo realmente USA.
+
+NADA exigiu intervenção minha em produção. Itens que EXIGEM você na PARTE D.
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+[ ] FILA-FIX-1 [APP PARADO] (NOVO) Ligar modules/fila_prioridade.py na home do MEU
+           DIA como a FILA priorizada ("LIGUE PARA ESTE PRIMEIRO"):
+      (a) Gere as tarefas com cadencia.generate_cadence(base_rfm, today) e o
+          histórico de toques (mesma fonte da cobertura — modules/db.py / client_meta).
+      (b) Calcule o desempenho de canal com atribuicao.channel_performance(toques,
+          vendas) e passe como channel_perf.
+      (c) fila = fila_prioridade.build_priority_queue(tasks, toques, channel_perf,
+          today=date.today(), desde=<emissão da cadência>). Render: card-herói com
+          queue_summary(fila) (top_nome + top_motivo + por_farol); depois a lista de
+          cima pra baixo, cada linha com score, farol (RÓTULO textual — UX-3),
+          motivo e os 3 componentes (urgência/execução/conversão) num expander
+          "por que este score" (designer: explicável, não caixa-preta).
+      (d) Mantenha incluir_no_prazo=False na home (só o que falta fazer hoje); um
+          toggle "ver tudo" para auditoria.
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa com "xkeysi…"; reconfirmada AO
+           VIVO — agora 6ª vez). Depois: adicionar "brevo_api_key" a
+           secure_store.SENSITIVE_KEYS; mover o valor p/ o vault; email_sender ler do
+           vault com fallback legado; limpar a chave do JSON; testar envio.
+[ ] AUTH-TEST-FIX [APP PARADO] Consertar tests/test_auth.py após o refactor da
+           migração (auth._PATH constante -> auth._get_path() função). 7 erros em
+           setUpClass (unittest) / 27 (pytest). Detalhe na Iter-27, PARTE D.
+[ ] RUNNER-1 [SEM RISCO] Unificar o runner: trocar a linha do Rodar_Testes.bat por
+           "venv\Scripts\python.exe -m pytest -q tests" (coleta TODOS os estilos —
+           hoje 560). Faça DEPOIS de AUTH-TEST-FIX, senão o .bat fica vermelho pelos
+           27 erros de auth. Detalhe na Iter-28, PARTE D.
+[ ] COB-FIX-1 [APP PARADO] Ligar modules/cobertura_cadencia.py no painel do gerente
+           (EXECUÇÃO DA RÉGUA / SLA DE RELACIONAMENTO). Detalhe na Iter-28, PARTE D.
+[ ] CAD-FIX-1 / META-FIX-1 / ATRIB-FIX-1 / STREAK-FIX-1 [APP PARADO] Ligar
+           cadencia/metas/atribuicao/streaks na UI. Detalhes nas Iters 24–27, PARTE D.
+           (Nota: FILA-FIX-1 já CONSOME cadencia+cobertura+atribuicao — ligar a fila
+           primeiro entrega 3 dos 5 sinais numa tela só.)
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse de
+           data). Detalhes na Iter-23/24.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/": 25 hoje (com o desta
+           noite), manter ~14 (apagar os ~11 mais antigos — Backups de 30/05 e
+           31/05). O classificador de auto-mode NEGA a MINHA exclusão de backups de
+           sessões anteriores -> ação manual sua, OU me autorize via regra no settings.
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+Duas lições. (1) SÍNTESE > COLEÇÃO: cinco peças que respondem cinco perguntas não
+são um produto — são cinco relatórios. O vendedor leigo (olhar [1]) não sintetiza
+cinco painéis de cabeça; ele precisa da UMA fila ordenada. O valor da Iter-29 não
+foi um sexto sinal novo, foi COMBINAR os cinco existentes num único score
+explicável. Todo CRM maduro tem essa work-queue priorizada como home — e dá pra
+construí-la sem ML, só com regra explícita e os sinais que já temos. (2) O AMBIENTE
+QUEBRA AS FERRAMENTAS BÁSICAS: o robocopy do backup falhou (exit 16) por causa do
+"O" acentuado no caminho do OneDrive; PowerShell Copy-Item -LiteralPath resolveu.
+Vale registrar pra próxima execução não perder tempo: neste caminho, backup é via
+PowerShell, não robocopy. Disciplina "backup -> regressão -> agir" intacta, e a
+regressão nos dois runners confirmou +19 testes e zero novo vermelho.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de PROJEÇÃO DE FECHAMENTO multi-mês p/ o gerente (alvo (a) da
+    Iter-27/28, ainda aberto): dado histórico + ritmo atual, projetar o fechamento
+    da loja no trimestre (forecast simples) — complementa metas.pace (mês) com a
+    visão de período. Puro, testável, reúsa metas/dateutils.
+(b) Helper puro de RECOMENDAÇÃO DE CANAL por cliente: dado o canal que mais converte
+    (atribuição) vs. o canal padrão do segmento (cadência), sugerir "troque de
+    WhatsApp para Ligação neste cliente" — fecha o loop "canal fraco" que a
+    fila_prioridade já SINALIZA mas ainda não RESOLVE.
+(c) Continuar tudo que toca .py de produção (FILA-FIX/COB-FIX/CAD-FIX/META-FIX/
+    ATRIB-FIX/STREAK-FIX/PV-FIX/SEC-1/RUNNER-1/AUTH-TEST-FIX) como tarefa manual na
+    PARTE D — com o app parado.
+
+
+================================================================================
+ITERAÇÃO 30 — 04/06/2026 01:04 (execução noturna automática do builder-app)
+================================================================================
+Disciplina de sempre: BACKUP -> REGRESSÃO -> AGIR (só aditivo, app pode estar no ar).
+
+Backup criado e verificado: "the builder/Backup 01 04 06 2026" (22 itens; cópia da
+raiz SugestaoCompras excluindo venv/.git/__pycache__/.pytest_cache/.streamlit/the
+builder). Feito direto via cp -r no Bash (12 MB) — neste run o caminho acentuado do
+OneDrive não atrapalhou; mantida a lição da Iter-29 de evitar robocopy aqui.
+
+Regressão (DOIS executores, lição RUNNER-1 da Iter-28):
+  * ANTES:  unittest discover -s tests -> 508 testes, 7 erros (501 ok).
+            pytest -q tests             -> 560 passed, 27 erros.
+  * Os 7/27 erros são os PRÉ-EXISTENTES de test_auth (refactor auth._PATH ->
+    _get_path() da migração de nuvem do usuário — NÃO é regressão do builder; ver
+    AUTH-TEST-FIX). Ocorrem em setUpClass, antes de qualquer escrita -> risco baixo.
+  * DEPOIS: unittest -> 529 testes, 7 erros (522 ok, +21). pytest -> 581 passed
+            (+21), 27 erros. py_compile de app.py + módulos novos: OK.
+  * git status confirma: só DOIS arquivos novos meus (modules/projecao.py,
+    tests/test_projecao.py). Nada de produção foi tocado.
+
+--------------------------------------------------------------------------------
+PARTE A — OS QUATRO OLHARES (foco desta noite: a corrida do TRIMESTRE)
+--------------------------------------------------------------------------------
+[1] VENDEDOR LEIGO DE ÓTICA (quer aprender a vender e bater meta)
+    "A barra de meta do mês me ajudou muito — eu vejo se estou no ritmo. Mas mês
+    passado eu fechei forte e relaxei; aí vieram dois meses fracos e quando vi o
+    gerente disse que o TRIMESTRE não bateu. Eu não tinha como saber: o app só me
+    mostra o mês. Eu queria ver, junto da meta do mês, 'no ritmo de hoje você fecha
+    o trimestre em R$ X, faltam R$ Y' — pra eu não comemorar cedo demais." -> Dor
+    real: o placar do MÊS sem o placar do PERÍODO dá falsa sensação de segurança.
+
+[2] DESIGNER RENOMADO (BR)
+    "Forecast é um número que assusta se vier sozinho. A regra de ouro é mostrar de
+    QUE PARTES ele é feito: 'meses fechados + projeção do mês + meses à frente'. Se
+    o vendedor vê as três parcelas, ele confia; se vê só 'projeção: R$ 280k', acha
+    que é adivinhação. Mantenha a convenção de farol da casa, mas aqui o farol olha
+    pra FRENTE (vai bater?) — rotule claro: 🟢 'No caminho' / 🟡 'Atenção: ritmo do
+    trimestre' / 🔴 'Trimestre em risco'. E nunca cor pura sem rótulo (UX-3)."
+
+[3] EXECUTIVO COMERCIAL/MARKETING (40 anos de estrada)
+    "Toda diretoria comercial fecha por trimestre — é o ciclo do board, da campanha
+    e do bônus. O vendedor pensa em dia, o gerente em mês, a diretoria em trimestre;
+    um CRM sério costura os três. O valor não é só projetar: é dizer, com o mês já
+    correndo, QUANTO por mês ainda preciso fazer no que resta pra fechar a cota. Isso
+    transforma 'estamos atrás' em 'precisa de R$ W/mês' — atrás disso o gerente
+    redistribui esforço enquanto ainda dá tempo. Forecast sem 'ritmo necessário' é
+    diagnóstico sem receita."
+
+[4] PROGRAMADOR/SEGURANÇA (fintechs, CRM, segurança)
+    "Forecast é onde nasce caixa-preta. A decisão certa foi: nada de ML, regra
+    explícita e reuso. A projeção do mês corrente REUSA metas.pace() (não reimplementa
+    contagem de dias nem ritmo — uma fonte de verdade, lição da dateutils). Os meses
+    futuros têm base CONFIGURÁVEL e auditável (ritmo corrente / média dos fechados /
+    número do gerente), nunca um chute escondido. Módulo PURO, sem I/O, tolerante a
+    lixo (texto BR, dict, None) e a histórico de tamanho divergente (devolve 'aviso'
+    em vez de quebrar). 21 testes cobrindo as três parcelas, fallback do 1º dia útil
+    e os faróis. Continua a regra de ouro da operação: aditivo, não-ligado, app no ar."
+
+--------------------------------------------------------------------------------
+PARTE B — CRM DE REFERÊNCIA (forecast de período)
+--------------------------------------------------------------------------------
+  * Salesforce "Forecast"   — projeção de fechamento do TRIMESTRE vs. cota, com
+    rollup do realizado + pipeline ponderado. O quarter é a unidade-mãe do forecast.
+  * RD Station "Previsão"    — quanto deve fechar no período mantido o ritmo atual.
+  * MS Dynamics "Goals"      — metas com período pai (trimestre) e filhos (meses);
+    realizado dos fechados + em-andamento do corrente fazem o rollup.
+  * Linx Microvix / varejo   — meta trimestral da loja acompanhada mês a mês.
+Padrão comum: o trimestre é REALIZADO(fechados) + EM-ANDAMENTO(corrente projetado)
++ ESTIMATIVA(futuros), e o painel mostra "quanto falta / ritmo necessário". É
+exatamente o que projecao.project_quarter() monta — com as três parcelas EXPLÍCITAS
+na saída, sem ML, 100% explicável, reusando o pace do mês que já tínhamos.
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo (a) da Iter-27/28/29 entregue: a PROJEÇÃO DE FECHAMENTO DE PERÍODO (trimestre),
+que faltava para completar a escada do placar  pace(mês) -> projecao(trimestre).
+
+  1) NOVO modules/projecao.py (peça PURA, não importada pelo app):
+     - quarter_bounds(today): (1º dia, último dia) do trimestre-calendário que
+       contém a data — abr-jun, jul-set, etc. month_index_in_quarter(today): 0/1/2.
+     - project_quarter(meta_periodo, meta_corrente, realizado_corrente, today=,
+       historico_fechados=, base_futuro=, use_business_days/work_sundays/holidays=):
+       soma TRÊS parcelas explícitas -> projeção do fechamento do trimestre:
+         (1) realizado dos meses JÁ FECHADOS do trimestre (historico_fechados, que
+             aceita número, texto BR "1.234,56" ou dict {"realizado": ...});
+         (2) projeção do mês CORRENTE — REUSA metas.pace()["projecao"] (ritmo do mês
+             até hoje); no 1º dia útil (sem ritmo) cai num fallback honesto p/ a meta
+             do mês, sinalizado em base_corrente="meta_fallback";
+         (3) cada mês FUTURO por uma base configurável (base_futuro): "corrente"
+             (estende o ritmo do mês), "media" (média dos fechados; sem histórico cai
+             em corrente) ou um número fixo do gerente.
+       Devolve: projecao_periodo, pct_projetado, gap vs. meta, faróis olhando pra
+       FRENTE (🟢 no caminho / 🟡 atenção / 🔴 risco), falta_periodo, capacidade em
+       "meses-equivalentes" (fração restante do mês corrente — reusa dias_restantes/
+       dias_no_mes do pace — + meses futuros) e ritmo_mensal_necessario, mais um
+       "motivo" em uma frase com as três parcelas, e "aviso" quando o tamanho do
+       histórico diverge do esperado. Tolera lixo em qualquer campo sem quebrar.
+     - quarter_summary(proj): resumo p/ card-herói do gerente — headline ("No
+       caminho: projeta R$ X de R$ Y (102%)") + ação ("Faltam R$ Z; precisa de
+       R$ W/mês no que resta"). Tolera entrada inválida (devolve farol cinza).
+  2) NOVO tests/test_projecao.py (+21, todos passam) — unittest.TestCase (roda no
+     .bat E no pytest, lição RUNNER-1). Cobre: limites dos 4 trimestres e índice do
+     mês; parsing BR/US/lixo de valores; as três parcelas no meio do trimestre;
+     bases futuras (corrente/media/número/ media-sem-histórico); fallback do 1º dia
+     útil; faróis verde/amarelo/vermelho e sem-meta; falta e ritmo necessário com a
+     capacidade em meses-equivalentes; aviso de histórico divergente; histórico em
+     dict e texto BR; lixo não quebra; rótulo do período; e o resumo do card-herói.
+
+Por que isto destrava o roadmap: fecha a ESCADA DO PLACAR. A Iter-24 deu o ritmo do
+MÊS (metas.pace); faltava a corrida que a diretoria cobra — o TRIMESTRE. Agora o
+gerente vê, com o mês ainda correndo, onde a loja fecha o período e quanto por mês
+ainda precisa — e o vendedor leigo para de comemorar um mês forte sem ver o buraco
+do trimestre. Reusa o pace que já existe (uma fonte de verdade p/ contagem de dias),
+mantém tudo explicável (três parcelas à mostra) e aditivo (nada ligado em produção).
+
+NADA exigiu intervenção minha em produção. Itens que EXIGEM você na PARTE D.
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+[ ] PROJ-FIX-1 [APP PARADO] (NOVO) Ligar modules/projecao.py no painel do GERENTE,
+           ao lado do placar do mês (metas.pace), como o forecast do TRIMESTRE:
+      (a) Some o realizado dos meses já fechados do trimestre corrente (mesma fonte
+          de vendas do realizado do mês — retorno Microvix por período).
+      (b) Passe meta_corrente/realizado_corrente do mês (o que já alimenta o pace) e
+          historico_fechados = [realizado de cada mês fechado do trimestre].
+      (c) proj = projecao.project_quarter(meta_trimestre, meta_mes, realizado_mes,
+          today=date.today(), historico_fechados=[...]). Render: card-herói com
+          quarter_summary(proj) (headline + ação) e um expander "de onde vem a
+          projeção" mostrando as TRÊS parcelas (fechados / projeção do mês / meses à
+          frente) e a base_futuro usada — explicável, não caixa-preta (designer).
+      (d) Use o MESMO farol/rótulo textual da casa (UX-3). Deixe base_futuro escolhível
+          pelo gerente ("ritmo atual" x "média dos meses fechados").
+[ ] FILA-FIX-1 [APP PARADO] Ligar modules/fila_prioridade.py na home do MEU DIA como
+           a FILA priorizada ("LIGUE PARA ESTE PRIMEIRO"). Detalhe na Iter-29, PARTE D.
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa com "xkeysi…"; reconfirmada AO
+           VIVO). Depois: adicionar "brevo_api_key" a secure_store.SENSITIVE_KEYS;
+           mover ao vault; email_sender lê do vault com fallback legado; limpar o JSON;
+           testar envio.
+[ ] AUTH-TEST-FIX [APP PARADO] Consertar tests/test_auth.py após o refactor da
+           migração (auth._PATH constante -> auth._get_path() função). 7 erros em
+           setUpClass (unittest) / 27 (pytest). Detalhe na Iter-27, PARTE D.
+[ ] RUNNER-1 [SEM RISCO] Unificar o runner: trocar a linha do Rodar_Testes.bat por
+           "venv\Scripts\python.exe -m pytest -q tests" (coleta TODOS os estilos —
+           hoje 581 + 27 erros). Faça DEPOIS de AUTH-TEST-FIX, senão o .bat fica
+           vermelho pelos 27 erros de auth. Detalhe na Iter-28, PARTE D.
+[ ] COB-FIX-1 [APP PARADO] Ligar modules/cobertura_cadencia.py no painel do gerente
+           (EXECUÇÃO DA RÉGUA / SLA DE RELACIONAMENTO). Detalhe na Iter-28, PARTE D.
+[ ] CAD-FIX-1 / META-FIX-1 / ATRIB-FIX-1 / STREAK-FIX-1 [APP PARADO] Ligar
+           cadencia/metas/atribuicao/streaks na UI. Detalhes nas Iters 24–27, PARTE D.
+           (Nota: PROJ-FIX-1 já CONSOME metas.pace — ligar pace+projeção na mesma tela
+           do gerente entrega o placar mês+trimestre de uma vez.)
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse de
+           data). Detalhes na Iter-23/24.
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/": 26 hoje (com o desta
+           noite), manter ~14 (apagar os mais antigos — 30/05 e 31/05). O classificador
+           de auto-mode NEGA a MINHA exclusão de backups de sessões anteriores -> ação
+           manual sua, OU me autorize via regra no settings.
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+ESCADA DE HORIZONTES. Um CRM de operação serve três relógios diferentes: o vendedor
+pensa no DIA (fila/cadência), o gerente no MÊS (pace), a diretoria no TRIMESTRE
+(forecast). Construir o sinal do mês sem o do trimestre é deixar o usuário cego
+justamente no horizonte em que ele é cobrado — por isso o vendedor "fecha forte e
+relaxa". O caminho mais barato e mais confiável para o horizonte maior NÃO foi um
+modelo novo: foi COMPOR o que já existe (pace do mês) com aritmética explícita de
+período. Reuso > reimplementação (a mesma lição que a dateutils ensinou): o forecast
+do trimestre herda automaticamente toda a correção de contagem de dias do pace.
+E forecast só vira ação com a "receita" junto — projetar sem dar o ritmo necessário
+por mês restante é diagnóstico sem tratamento.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de RECOMENDAÇÃO DE CANAL por cliente: dado o canal que mais converte
+    (atribuicao.channel_performance) vs. o canal padrão do segmento (cadencia.policy_for),
+    sugerir "troque de WhatsApp para Ligação neste cliente" — fecha o loop "canal
+    fraco" que a fila_prioridade SINALIZA mas ainda não RESOLVE. Puro, testável, reúsa
+    atribuicao + cadencia.
+(b) Helper puro de RATEIO DE META: dada a meta da loja e o histórico/peso de cada
+    vendedor, distribuir a cota do mês/trimestre por vendedor (o que o gerente faz na
+    mão hoje) — alimenta o pace/projecao por pessoa. Reúsa metas/projecao.
+(c) Continuar tudo que toca .py de produção (PROJ-FIX/FILA-FIX/COB-FIX/CAD-FIX/META-FIX/
+    ATRIB-FIX/STREAK-FIX/PV-FIX/SEC-1/RUNNER-1/AUTH-TEST-FIX) como tarefa manual na
+    PARTE D — com o app parado.
+
+
+================================================================================
+ITERAÇÃO 31 — 04/06/2026 02:04 (execução noturna automática do builder-app)
+================================================================================
+Janela 22h–04h: OK (02:04). Backup criado e verificado: "Backup 02 04 06 2026"
+(26 itens, app.py + modules/ presentes). Saúde do código antes de mexer:
+  - pytest:   581 passam + 27 erros (todos test_auth pré-existentes da migração).
+  - unittest: 522 ok + 7 erros (mesma causa). Nenhuma regressão dos meus módulos.
+git status confirma: só adicionei arquivos meus (modules/recomendacao_canal.py +
+tests/test_recomendacao_canal.py). Nada de produção tocado. Modo: zero-risco aditivo.
+
+--------------------------------------------------------------------------------
+PARTE A — OS QUATRO OLHARES (testei o app como quatro pessoas diferentes)
+--------------------------------------------------------------------------------
+1) VENDEDOR LEIGO DE ÓTICA (quer aprender a vender e bater meta)
+   Funciona: a escada do placar agora existe nas peças — DIA (cadência/fila),
+   MÊS (metas.pace), TRIMESTRE (projecao, ligado pela Iter-30). O script pronto por
+   segmento tira o "e agora, o que eu falo?". A fila ("ligue para este primeiro")
+   resolve a paralisia de manhã.
+   Trava que senti HOJE: a fila me AVISA "canal fraco — considere trocar", mas não
+   me diz PARA QUAL canal. Eu, leigo, leio isso e continuo no WhatsApp porque
+   ninguém me deu a alternativa concreta. Era o último degrau aberto do ciclo
+   "qual canal usar com este cliente". -> Resolvido nesta noite (PARTE C).
+   Ainda manual: nada disso está LIGADO na tela (vejo no relatório, não no app);
+   depende das tarefas [APP PARADO] da PARTE D.
+
+2) DESIGNER RENOMADO (clareza, hierarquia visual, carga cognitiva)
+   Funciona: cada peça devolve "farol + motivo em uma frase" — padrão consistente,
+   ótimo para card-herói. O leigo lê o porquê, não só o número.
+   Risco de design que aponto: estamos acumulando MUITOS painéis (cadência, metas,
+   projeção, cobertura, fila, agora recomendação de canal). Sem uma HOME que
+   sintetize, o vendedor vai se afogar. A recomendação de canal NÃO deve virar mais
+   um painel: ela é um CHIP dentro do card do cliente na fila ("📞 Troque WhatsApp →
+   Ligação (+200%)"). Por isso entreguei o helper já no formato 1-cliente -> 1 frase,
+   pronto para virar chip e não tela. Mantive o vocabulário de farol da casa.
+
+3) DIRETOR COMERCIAL (40 anos, premiado — ROI e foco de esforço)
+   Funciona: a casa finalmente responde "o que funcionou" (atribuição por canal) e
+   "vou bater o trimestre" (projeção). É o que cobro num CRM.
+   O que faltava e cobro: medir o canal que converte SEM redirecionar o esforço para
+   ele é meio diagnóstico. "WhatsApp converte 10% e Ligação 30%" só vira dinheiro se
+   a régua MANDAR o vendedor migrar os clientes certos. Quero a recomendação com
+   TRAVA: não viro a operação inteira no ruído de 3 toques — exijo volume mínimo e
+   ganho mínimo, senão mantém. E quero ver por VALOR ESPERADO, não só taxa: um canal
+   converte menos mas com ticket dobrado e ainda paga mais. -> Ambos atendidos
+   (critério "conversao" e "valor"; travas MIN_TOQUES_CONFIAVEL e MIN_LIFT_PCT).
+
+4) ENGENHEIRO SÊNIOR DE FINTECH (código, CRM, segurança)
+   Funciona: disciplina de módulos PUROS (sem I/O/rede/estado/relógio), testáveis,
+   desacoplados — fácil de auditar e ligar. Reuso > reimplementação.
+   Bandeira VERMELHA que repito (7ª vez): brevo_api_key em PLAINTEXT em
+   data/email_config.json (começa "xkeysi…"), sincronizado no OneDrive e FORA de
+   secure_store.SENSITIVE_KEYS (que só tem token/sefaz_*). Trate como vazada ->
+   ROTACIONE. É SEC-1 na PARTE D — o item de maior risco da casa e o mais antigo aberto.
+   Sobre o novo módulo: mantive-o SEM importar atribuicao/cadencia (consome só o
+   dict de channel_performance e, opcionalmente, um mapa de canal-padrão) — assim
+   ele não cria acoplamento circular e é trivial de testar e de mockar.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK CONTRA CRMs CONSOLIDADOS (Salesforce / Dynamics / RD / Linx)
+--------------------------------------------------------------------------------
+Recurso "melhor canal por cliente / Best Channel":
+  * Salesforce  — "Einstein Best Channel / Engagement": prevê por qual canal a conta
+                  responde melhor e recomenda o próximo toque.
+  * MS Dynamics — "Channel optimization": canal de maior retorno por contato.
+  * RD Station   — "melhor canal de conversão" do lead.
+  * Linx/varejo  — na prática a loja escolhe WhatsApp x ligação x e-mail no olho.
+Lacuna do Pepper (até hoje): a atribuição MEDIA a conversão por canal e a fila
+SINALIZAVA "canal fraco", mas ninguém RECOMENDAVA o canal certo por cliente. Os CRMs
+de referência fecham esse laço — nós só abríamos. Esta iteração entrega exatamente
+esse degrau, no nível da nossa operação (3 canais, base pequena -> com TRAVAS de
+volume e ganho para não recomendar troca no ruído, coisa que os modelos grandes
+escondem mas a loja pequena precisa ver explicitamente). Continua faltando o que os
+grandes têm e nós ainda não: rateio de meta por vendedor (alimenta pace/projeção por
+pessoa) — fica como próximo alvo (b).
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI IMPLEMENTADO NESTA NOITE (zero-risco, aditivo, não-ligado)
+--------------------------------------------------------------------------------
+Alvo (a) da Iter-30 entregue: RECOMENDAÇÃO DE CANAL POR CLIENTE — fecha o loop
+"canal fraco" que a fila_prioridade SINALIZA mas não RESOLVIA.
+
+  1) NOVO modules/recomendacao_canal.py (peça PURA, não importada pelo app):
+     - rank_channels(channel_perf, criterio=, min_toques=): ordena os canais do
+       melhor p/ o pior; marca cada um como "confiavel" (toques >= min_toques).
+       Empate determinístico (métrica -> toques -> ordem WhatsApp/Ligação/E-mail).
+     - best_channel(...): o melhor canal CONFIÁVEL (por padrão ignora amostra
+       pequena; métrica <= 0 nunca é "melhor"). apenas_confiavel=False relaxa.
+     - recommend_for_client(canal_atual, channel_perf, criterio=, min_toques=,
+       min_lift_pct=): o coração. Compara o canal atual do cliente (o padrão do
+       segmento na cadência) com o melhor canal do histórico e SÓ recomenda TROCAR
+       quando passa DUAS travas — (1) VOLUME: o recomendado tem toques suficientes;
+       (2) GANHO: a métrica supera a do atual por uma margem relativa mínima. Senão
+       MANTÉM (default seguro: não mexer no hábito do vendedor por migalha/ruído).
+       Trata os 4 casos: atual já é o melhor (confirma); atual sem histórico
+       (recomenda o melhor, confiança média); ganho grande (troca); ganho pequeno
+       (mantém). Saída pronta p/ UI: canal_atual, canal_recomendado, trocar(bool),
+       criterio, metrica_atual/recomendado, lift_pct, confianca(alta/media/baixa),
+       farol, motivo em linguagem de loja ("troque WhatsApp → Ligação (+200%)").
+     - criterio: "conversao" (taxa %) ou "valor" (VALOR ESPERADO por toque =
+       taxa/100 × ticket_medio) — o "expected revenue" que o diretor cobrou; pode
+       INVERTER a recomendação (canal que converte menos mas com ticket maior paga +).
+     - recommend_for_task / recommend_queue / recommendation_summary: aplica a
+       carteira; apenas_trocas=True devolve só a lista de ação ("estes N clientes:
+       troque o canal"); summary conta trocas/mantém/sem-dado e o canal-destino top.
+       Desacoplado: NÃO importa atribuicao/cadencia — consome só o dict de
+       channel_performance e, opcional, um mapa {segmento: canal_padrão}.
+  2) NOVO tests/test_recomendacao_canal.py (+26, todos passam) — unittest.TestCase
+     (roda no .bat E no pytest, lição RUNNER-1). Cobre: ordenação por conversão e por
+     valor; flag de confiável por volume; melhor canal ignorando amostra pequena e
+     métrica zero; os 4 casos de recomendação; trava de ganho mínimo (e seu override);
+     critério "valor" invertendo a escolha; fallback p/ canal-padrão do segmento;
+     fila completa, apenas_trocas, e o summary (trocas/destino/sem-dado).
+
+Baseline após a noite: pytest 607 passam + 27 erros (auth pré-existentes);
+unittest .bat 555 testes (548 ok + 7 erros auth). +26 testes, 0 regressão.
+
+Por que isto destrava o roadmap: a casa media conversão por canal há iterações, mas
+medir sem AGIR é diagnóstico sem receita. Agora a fila não só diz "canal fraco" —
+diz PARA QUAL trocar, com trava para não virar a régua no ruído. Fecha o ciclo
+cadência (o toque) → atribuição (o que converteu) → recomendação (use o canal que
+paga). E mantém o padrão da casa: puro, explicável, aditivo, nada ligado em produção.
+
+NADA exigiu intervenção minha em produção. Itens que EXIGEM você na PARTE D.
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS PARA O USUÁRIO (itens exigem app PARADO ou ação humana)
+--------------------------------------------------------------------------------
+[ ] REC-CANAL-FIX-1 [APP PARADO] (NOVO) Ligar modules/recomendacao_canal.py NA FILA
+           do MEU DIA (não como painel novo — como CHIP no card do cliente):
+      (a) Já tendo channel_perf = atribuicao.channel_performance(touches, sales) (o
+          mesmo que alimenta o eixo de conversão da fila_prioridade), monte o mapa
+          padrão = {seg: cadencia.policy_for(seg)["canal"] for seg in segmentos}.
+      (b) Para cada card da fila: rec = recomendacao_canal.recommend_for_task(task,
+          channel_perf, canal_padrao_por_segmento=padrao). Se rec["trocar"], renderize
+          um chip "📞 Troque {canal_atual} → {canal_recomendado} (+{lift_pct}%)" com o
+          rec["motivo"] no tooltip; senão não mostra nada (não polui).
+      (c) No painel do GERENTE: recommendation_summary(recommend_queue(tasks,
+          channel_perf, apenas_trocas=True)) -> card "N clientes para migrar de canal,
+          destino mais comum: {destino_top}". Deixe o critério escolhível
+          ("conversão" x "valor esperado") — o diretor pediu os dois.
+      (d) Use as constantes como padrão (MIN_TOQUES_CONFIAVEL=5, MIN_LIFT_PCT=20) e
+          só exponha override se o gerente pedir. Nada quebra com base pequena: sem
+          dado confiável, ele MANTÉM o canal e marca confiança "baixa".
+[ ] PROJ-FIX-1 [APP PARADO] Ligar modules/projecao.py no painel do GERENTE (forecast
+           do TRIMESTRE ao lado do pace do mês). Detalhe na Iter-30, PARTE D.
+[ ] FILA-FIX-1 [APP PARADO] Ligar modules/fila_prioridade.py na home do MEU DIA como
+           a FILA priorizada. Detalhe na Iter-29, PARTE D. (REC-CANAL-FIX-1 é o chip
+           dentro dos cards DESTA fila — ligue as duas juntas.)
+[ ] SEC-1  [AÇÃO HUMANA — MAIOR RISCO] Rotacionar a brevo_api_key (plaintext em
+           data/email_config.json no OneDrive, começa "xkeysi…"; reconfirmada AO VIVO
+           7ª vez). Depois: adicionar "brevo_api_key" a secure_store.SENSITIVE_KEYS;
+           mover ao vault; email_sender lê do vault c/ fallback legado; limpar o JSON;
+           testar envio.
+[ ] AUTH-TEST-FIX [APP PARADO] Consertar tests/test_auth.py após o refactor da
+           migração (auth._PATH -> auth._get_path()). 7 erros setUpClass (unittest) /
+           27 (pytest). Detalhe na Iter-27, PARTE D.
+[ ] RUNNER-1 [SEM RISCO] Unificar runner: Rodar_Testes.bat -> "venv\Scripts\python.exe
+           -m pytest -q tests". Faça DEPOIS de AUTH-TEST-FIX. Detalhe na Iter-28.
+[ ] COB-FIX-1 [APP PARADO] Ligar modules/cobertura_cadencia.py (SLA da régua).
+[ ] CAD-FIX-1 / META-FIX-1 / ATRIB-FIX-1 / STREAK-FIX-1 [APP PARADO] Ligar
+           cadencia/metas/atribuicao/streaks na UI. Detalhes nas Iters 24–27.
+[ ] PV-FIX-1 / PV-FIX-2 [APP PARADO] Régua de pós-venda (queue_gating + parse data).
+[ ] BACKUP-RETENCAO  Limpar backups antigos em "the builder/": 27 hoje, manter ~14
+           (apagar os mais antigos — 30/05 e 31/05). O classificador NEGA a MINHA
+           exclusão de backups de sessões anteriores -> ação manual sua, OU me autorize
+           via regra no settings.
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+MEDIR SEM AGIR É METADE DO CRM. As iterações de atribuição ensinaram a casa a MEDIR
+qual canal converte; a fila aprendeu a SINALIZAR "canal fraco". Mas o vendedor leigo
+não age sobre um sinal — age sobre uma INSTRUÇÃO ("troque para Ligação"). O salto de
+diagnóstico para prescrição foi barato porque os dados já existiam: bastou compor
+channel_performance (o que converte) com o canal-padrão do segmento (o que ele usa) e
+uma regra explícita de quando vale trocar. Duas sutilezas que separam um CRM de loja
+de um dashboard bonito: (1) TRAVA contra ruído — numa base pequena, recomendar troca
+por 3 toques que "converteram 100%" destrói a confiança do vendedor; volume + ganho
+mínimos são obrigatórios, não enfeite. (2) VALOR ESPERADO, não só taxa — o canal que
+converte menos pode pagar mais se o ticket for maior; expor os dois critérios evita a
+otimização míope da taxa. Prescrição > diagnóstico, mas só quando a prescrição é
+honesta sobre a própria incerteza (a confiança alta/média/baixa carrega isso).
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de RATEIO DE META por vendedor: dada a meta da loja (mês/trimestre) e
+    o histórico/peso de cada vendedor, distribuir a cota — o que o gerente faz na mão
+    hoje — alimentando pace/projecao POR PESSOA. Reúsa metas/projecao. É o último
+    grande buraco vs. os CRMs grandes (goals rollup por vendedor).
+(b) Helper puro de CADÊNCIA MULTI-TOQUE (sequência): hoje cadencia dá UMA próxima
+    ação; os CRMs dão a SEQUÊNCIA (toque 1 WhatsApp D+0, toque 2 Ligação D+3, …) com
+    parada quando o cliente responde. Reúsa cadencia + cobertura.
+(c) Continuar TUDO que toca .py de produção (REC-CANAL-FIX/PROJ-FIX/FILA-FIX/COB-FIX/
+    CAD/META/ATRIB/STREAK/PV/SEC-1/RUNNER-1/AUTH-TEST-FIX) como tarefa manual na PARTE
+    D — com o app parado. Eu entrego a peça PURA testada; você liga.
+
+================================================================================
+ITERAÇÃO 32 — 2026-06-04 ~03h  (RATEIO DE META POR VENDEDOR / GOAL ROLLUP)
+================================================================================
+Backup desta execução: "the builder/Backup 03 04 06 2026" (verificado: 230 arquivos,
+~11,5 MB, 37 módulos + app.py presentes). Cópia via Copy-Item -LiteralPath (robocopy
+falha no caminho com acento "Óticas"). App NÃO foi iniciado (servidor é controlado
+por você). Saúde aferida por py_compile + suíte de testes.
+
+BASELINE DE ENTRADA (antes do meu trabalho):
+  pytest:            607 ok + 27 erros (test_auth — pré-existentes da migração cloud)
+  unittest .bat:     555 ran (548 ok + 7 erros test_auth)
+  git status:        só meus módulos aditivos não rastreados; nenhum .py de produção
+                     tocado por mim. Os 27/7 erros são da migração em andamento do
+                     auth (auth._PATH -> auth._get_path), NÃO regressão minha.
+
+--------------------------------------------------------------------------------
+REVISÃO 4 PERSONAS (o app como vivido por cada papel)
+--------------------------------------------------------------------------------
+1) VENDEDOR LEIGO DE ÓTICA (quer aprender a vender e bater meta)
+   + O quinteto + a fila ("ligue para este primeiro") já dão ao leigo o que faltava:
+     o que fazer HOJE, por quem começar, e se estou no ritmo. É mais do que a maioria
+     das lojas tem.
+   - MAS a meta individual "cai do céu". O vendedor vê "sua meta é R$ 8.000" sem saber
+     de onde veio nem se é justa frente ao colega que pega mais loja cheia. Sem
+     transparência do rateio, meta vira imposição e não compromisso.
+   - Pediu (de novo, implícito): "quero ver MINHA fatia da meta da loja e por quê".
+
+2) DESIGNER RENOMADO (BR)
+   + A linguagem de farol 🟢🟡🔴 + posição/ranking já é coesa entre metas/streaks/fila.
+   - Rateio é, acima de tudo, um problema de CONFIANÇA visual: o gerente precisa ver,
+     numa tabela, que as fatias SOMAM 100% e fecham a meta da loja ao centavo. Exibir
+     "R$ 9.999,98 de R$ 10.000" derruba a casa toda. (Resolvido no back-end: soma
+     exata por maior resto; a UI só precisa exibir o "= meta da loja".)
+   - Sugere um donut "concentração" (quanto a meta depende do top vendedor) — risco de
+     dependência de uma pessoa é insight de gestão. (Já entrego concentracao_top.)
+
+3) DIRETOR COMERCIAL (40 anos, premiado)
+   + "Goal rollup" é o que separa controle de loja de planilha. Distribuir a cota no
+     PESO de quem entrega é o básico que todo diretor cobra — e ter PISO para proteger
+     o novato é o detalhe que poucos sistemas acertam.
+   - Cobrou três coisas que o módulo já cobre: (a) base escolhível (histórico x peso
+     manual x igual); (b) piso por pessoa, não só global; (c) a meta da LOJA manda — se
+     os pisos estouram, o sistema reduz os pisos, nunca inventa cota a mais.
+   - Próxima cobrança: rateio do TRIMESTRE (casar com projecao) e "remanejar o que
+     falta" no meio do mês entre quem está adiantado. Fica como alvo.
+
+4) PROGRAMADOR SÊNIOR (fintech / CRM / segurança)
+   + Módulo puro, stdlib só (math), determinístico, sem relógio interno — testável e
+     sem flake. Desacoplado de metas/projecao (produz a lista que seller_progress já
+     consome) — mesma lição boa do recomendacao_canal: compõe sem acoplar.
+   + Invariante crítico (soma == meta da loja) protegido por apportionment (maior
+     resto) e testado com fuzz de totais/tamanhos. Bug clássico de rateio ("centavo
+     perdido") eliminado por construção, não por sorte de arredondamento.
+   - ALERTA DE SEGURANÇA REAFERIDO AO VIVO (9ª vez): data/email_config.json ainda
+     guarda brevo_api_key EM TEXTO PURO (prefixo "xkeysi...", 89 chars, no OneDrive) e
+     segue FORA de secure_store.SENSITIVE_KEYS. Tratar como vazada -> ROTACIONAR.
+     Continua sendo o maior risco aberto (SEC-1).
+
+--------------------------------------------------------------------------------
+BENCHMARK CRMs CONSOLIDADOS (como fazem o rateio — e o que copiei)
+--------------------------------------------------------------------------------
+* Salesforce "Quotas": cota do time atribuída por representante, em geral por
+  histórico. -> Copiei: base "historico".
+* MS Dynamics "Goals (parent/child rollup)": meta-pai (loja) rateada em metas-filho
+  (vendedor) e somada de volta. -> Copiei: soma dos filhos = pai EXATO (rateio_resumo
+  prova o fechamento).
+* RD Station "Metas": meta do time dividida entre vendedores. -> Copiei: base "igual"
+  e "peso" manual para times sem histórico confiável.
+* Linx Microvix / varejo: meta da loja por vendedor com base no desempenho. -> Copiei:
+  histórico como número OU lista de meses (soma/média dos últimos períodos).
+  Diferencial além deles: PISO por vendedor com proteção (escala se estourar a meta) —
+  prática de varejo (proteger novato) que as ferramentas genéricas não trazem pronta.
+
+--------------------------------------------------------------------------------
+TRABALHO DESTA ITERAÇÃO (zero-risco, aditivo)
+--------------------------------------------------------------------------------
+NOVO módulo PURO: modules/rateio_metas.py  (+ tests/test_rateio_metas.py, 23 testes
+unittest.TestCase — rodam no .bat E no pytest).
+  API:
+    _to_float(x)                       número robusto a int/float/str BR ("1.234,56").
+    normalizar_pesos(vendedores, base) -> +peso_bruto, +peso_pct (participação 0..1).
+    ratear(meta_total, vendedores, *, base="historico"|"peso"|"igual", casas=2,
+           piso=0.0, pisos={nome:piso}, weight_fn=...) -> cada vendedor recebe
+           meta_rateada; SOMA EXATA = round(meta_total, casas) por maior resto.
+    to_seller_metas(rateio, realizados) -> lista {"nome","meta","realizado",...} no
+           formato que metas.seller_progress consome (composição em 1 linha, 0 acople).
+    rateio_resumo(rateio) -> meta_total, qtd, maior/menor, concentracao_top (risco de
+           dependência do top vendedor).
+  Garantias testadas: soma exata (fuzz de totais 10..12345,67 e equipes 1..9); peso
+    proporcional; histórico-lista somado; equipe sem histórico cai p/ igual; peso
+    negativo->0; piso global e por nome; pisos que estouram a meta são escalados;
+    meta<=0 zera; base inválida levanta ValueError; campos extras preservados;
+    pipeline ratear->to_seller_metas->metas.seller_progress fecha = meta da loja.
+
+O ciclo de um CRM de loja agora está coberto como peças puras:
+  rateio (quanto cada um deve) -> cadência (o que fazer) -> fila (por quem começar) ->
+  cobertura (cumpri a régua?) -> atribuição (o que converteu) -> metas/projeção (estou
+  no ritmo? onde fecho?) -> streaks (reconhecimento) -> recomendação (troque de canal).
+  rateio_metas fecha a ponta que faltava: de onde vem a meta de cada pessoa.
+
+BASELINE DE SAÍDA (após meu trabalho — sem regressão):
+  pytest:        630 ok + 27 erros test_auth   (+23 testes novos)
+  unittest .bat: 578 ran (571 ok + 7 erros test_auth)   (+23 — confirmado nos DOIS
+                 runners, prova que os testes novos são coletados como TestCase)
+
+--------------------------------------------------------------------------------
+NOVA TAREFA MANUAL (PARTE D — app parado)
+--------------------------------------------------------------------------------
+[ ] RATEIO-FIX-1 [APP PARADO] (NOVO) Ligar modules/rateio_metas.py no painel do
+           GERENTE como "Distribuir a meta da loja":
+      (a) Entrada: meta_loja (já existe em loja_config/metas da loja) + lista de
+          vendedores com histórico (use as vendas dos últimos 1-3 meses já disponíveis
+          em store/rfm/atribuicao). Ex.:
+            rateio = rateio_metas.ratear(meta_loja, vendedores, base="historico",
+                                         casas=2, piso=piso_minimo_opcional)
+      (b) Renderize a tabela de conferência: por vendedor, peso_pct e meta_rateada;
+          rodapé com rateio_metas.rateio_resumo(rateio) mostrando "Total = R$ meta_loja"
+          (a soma fecha ao centavo por construção) e "concentração no top: X%".
+      (c) Base escolhível no UI (histórico / peso manual / igual) e piso editável — o
+          diretor pediu os três modos. Pesos manuais = base="peso".
+      (d) Ligue ao painel POR PESSOA já existente:
+            sellers = rateio_metas.to_seller_metas(rateio, realizados_por_nome)
+            prog    = metas.seller_progress(sellers, today=date.today())
+          Cada vendedor passa a ver a fatia DELE da meta da loja alimentando o ritmo
+          (resolve a dor #1 do vendedor leigo: "de onde vem minha meta").
+      (e) Opcional (futuro): rateio do trimestre casando com projecao.quarter_summary.
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+A META PRECISA SER FABRICADA, NÃO IMPOSTA. Desde a Iter 25 o app sabia COBRAR uma meta
+individual (pace/ritmo/farol), mas alguém de fora tinha de DIGITAR essa meta — e o
+vendedor a recebia sem origem nem lógica. O rateio fecha o ciclo na origem: a meta da
+loja vira metas individuais explicáveis ("você responde por 32% da loja"). Duas coisas
+separam um rateio confiável de uma regra-de-três: (1) SOMA EXATA — um rateio que "sobra
+R$ 0,02" destrói a confiança do gerente; resolvido por construção (maior resto), não
+por arredondamento otimista; (2) A META DA LOJA MANDA — pisos protegem o novato, mas se
+os pisos estouram a cota, eles são reduzidos, nunca a cota inflada. Transparência (de
+onde veio) + fechamento exato (a conta bate) é o que transforma uma meta em compromisso.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Helper puro de CADÊNCIA MULTI-TOQUE (sequência): hoje cadencia dá UMA próxima ação;
+    os CRMs dão a SEQUÊNCIA (toque 1 WhatsApp D+0, toque 2 Ligação D+3, …) com parada
+    quando o cliente responde. Reúsa cadencia + cobertura. (Agora é o maior buraco
+    restante vs. os CRMs grandes — "sales sequences/cadences" do Salesforce/Outreach.)
+(b) Rateio do TRIMESTRE: compor rateio_metas com projecao.quarter_summary para ratear a
+    cota trimestral e projetar por pessoa (cobrança do diretor nesta iteração).
+(c) Continuar TUDO que toca .py de produção (RATEIO-FIX/REC-CANAL-FIX/PROJ-FIX/FILA-FIX/
+    COB-FIX/CAD/META/ATRIB/STREAK/PV/SEC-1/RUNNER-1/AUTH-TEST-FIX) como tarefa manual na
+    PARTE D — com o app parado. Eu entrego a peça PURA testada; você liga.
+
+
+################################################################################
+# ITERAÇÃO 33 — 04/06/2026 04h (execução noturna automática)
+################################################################################
+
+RESUMO EXECUTIVO DA NOITE
+- Backup criado e verificado: "Backup 04 04 06 2026" (25 itens, exclui venv/.git/
+  caches/the builder).
+- SUÍTE 100% VERDE PELA PRIMEIRA VEZ DESDE A MIGRAÇÃO PARA A NUVEM. Fechei o
+  AUTH-TEST-FIX que estava aberto desde a migração (7 erros no unittest / 27 no
+  pytest viravam ERROR no setup de test_auth.py). Era código DE TESTE, não de
+  produção → corrigi com segurança.
+    · pytest:            630 ok + 27 ERROS  →  684 ok + 0 erros
+    · unittest discover: 571 ok + 7 erros   →  632 ok + 0 erros (Rodar_Testes.bat
+      agora roda limpo de ponta a ponta)
+- Entreguei o ALVO (a) que estava na fila: modules/sequencia_cadencia.py — o motor
+  de CADÊNCIA MULTI-TOQUE (a "sales sequence/cadence" do Salesforce/Outreach/RD),
+  com 27 testes novos (unittest.TestCase, roda nos dois runners).
+- app.py compila. Nada de produção foi tocado (app em migração).
+- SEC-1 reconfirmado ABERTO pela 10ª vez (chave Brevo em texto puro). Continua
+  como tarefa manual de rotação — não roteio/giro chave de produção sozinho.
+
+--------------------------------------------------------------------------------
+PARTE A — OS 4 FEEDBACKS (personas)
+--------------------------------------------------------------------------------
+
+[1] VENDEDOR DE ÓTICA LEIGO ("quero aprender a vender com a ferramenta")
+  O que está funcionando: o caminho RFM → "o que faço agora" amadureceu muito. Eu
+  via o segmento do cliente (⚠️ Em Risco, 💎 Fiel…) e a cadência já me dava UMA
+  ação com script pronto. Mas minha dúvida real no balcão era: "mandei WhatsApp e
+  o cliente não respondeu — e AGORA?". Eu não sabia se ligava, quando ligava, ou se
+  já tinha cutucado demais. Com a sequência multi-toque isso vira um trilho: toque 1
+  WhatsApp hoje, se não responder, toque 2 é Ligação daqui a 3 dias, toque 3 é a
+  oferta final no dia 7 — e se o cliente responder, o app FECHA a sequência sozinho
+  e para de me mandar cutucar. É como ter um gerente do lado dizendo "o próximo passo
+  é esse, nesse dia". Pedido que mantenho: que a home "MEU DIA" mostre os toques
+  ATRASADOS no topo, em vermelho, porque é onde eu perco venda por esquecimento.
+
+[2] DESIGNER RENOMADO (BR)
+  A sequência resolve um problema de carga cognitiva: em vez de uma decisão por
+  cliente toda vez, o vendedor vê uma trilha com estados claros (feito / hoje /
+  atrasado / agendado / encerrado-por-resposta). Recomendo um componente de "stepper"
+  horizontal no cartão do cliente — bolinhas numeradas ① ② ③ coloridas pelo status
+  (verde=feito, âmbar=hoje, vermelho=atrasado, cinza=agendado), com o ícone do canal
+  (💬 ☎ ✉) em cada passo. O estado "encerrado por resposta" deve ser uma faixa verde
+  comemorativa ("Cliente respondeu! 🎉"), não um cinza apagado — é uma vitória e o
+  app precisa celebrar para reforçar o comportamento. Atenção de acessibilidade: não
+  comunicar status só por cor — o módulo já devolve um rótulo textual de status em
+  cada passo, use-o como label visível, não só como title.
+
+[3] EXECUTIVO COMERCIAL/MARKETING (40 anos, melhor diretor comercial)
+  Isto é o que separa um "relatório bonito" de uma MÁQUINA DE RECEITA. Cadência de um
+  toque é um lembrete; SEQUÊNCIA com parada-na-resposta é processo comercial — é o que
+  a Outreach/Salesloft venderam por bilhões. Três ganhos diretos para a operação de
+  óticas: (1) padroniza o follow-up entre lojas — o vendedor bom e o novato passam a
+  seguir a MESMA trilha de win-back, então a reativação deixa de depender de talento
+  individual; (2) o "stop-on-reply" protege a marca — nada queima mais um cliente
+  premium do que o 4º WhatsApp depois de ele já ter respondido; (3) me dá uma métrica
+  de GESTÃO que eu não tinha: "% da carteira com toque atrasado" por loja/vendedor (o
+  sequence_summary já cospe isso) — esse é o número que eu cobro na reunião de segunda.
+  Próxima cobrança minha (mantida da iteração passada): ratear a cota do TRIMESTRE por
+  pessoa, casando o rateio com a projeção trimestral. Quero a meta da loja virando
+  fatia individual já projetada para o fim do trimestre.
+
+[4] PROGRAMADOR FINTECH SÊNIOR (CRM/segurança)
+  Arquitetura: aprovado. O módulo é puro, determinístico (data injetada, zero relógio
+  interno → testes sem flake), stdlib + dateutils + reuso de cadencia, sem tocar app.
+  Reusar cadencia.script_for no passo D+0 evita divergência de script entre o painel de
+  cadência e a sequência — bom (DRY, fonte única). O contrato de estados/status com
+  constantes nomeadas (FEITO/HOJE/ATRASADO/AGENDADO/ENCERRADO_RESPOSTA, EM_ANDAMENTO/
+  RESPONDEU/CONCLUIDA) facilita a fiação na UI sem strings mágicas. Cobertura: 27 casos
+  incluindo saturação de toques, prioridade de row['respondeu'] sobre touches, e
+  ordenação atrasado→hoje→agendado. ALERTA DE SEGURANÇA REITERADO: SEC-1 — data/
+  email_config.json guarda brevo_api_key em TEXTO PURO (prefixo xkeysi…, 89 chars),
+  sincronizado no OneDrive, FORA das SENSITIVE_KEYS do secure_store. 10ª confirmação.
+  Trate como VAZADA: rotacione no painel Brevo e mova para o cofre. Enquanto isso ela
+  está exposta a qualquer um com acesso ao OneDrive ou ao backup.
+
+--------------------------------------------------------------------------------
+PARTE B — BENCHMARK vs CRMs CONSOLIDADOS (foco: sequência multi-toque)
+--------------------------------------------------------------------------------
+  Salesforce  Sales Engagement / Cadences ...... trilha de steps, stop-on-reply  ✔ coberto
+  Outreach/Salesloft  "Sequences" ............... canal+prazo por step           ✔ coberto
+  RD Station  "Cadência" ........................ WhatsApp→Ligação→E-mail datado  ✔ coberto
+  MS Dynamics "Sequences" ....................... "passo 2 de 4" por estágio      ✔ coberto (passos_feitos/total_passos)
+  Linx Microvix  CRM óticas ..................... segmentação + recompra          ✔ já existia (RFM+cadência)
+  ------------------------------------------------------------------------------
+  O "quinteto + cérebro" do Pepper agora tem o ELO QUE FALTAVA: cadência (1 ação) →
+  SEQUÊNCIA (a trilha completa) → cobertura (executou?) → fila (quem 1º) → atribuição
+  (o que converteu) → meta/rateio/projeção (quanto/quem). Em paridade conceitual com a
+  camada de "sales engagement" dos grandes — faltando só a EXECUÇÃO automática do envio
+  (que aqui é manual/assistido por design, óticas trabalham no balcão).
+
+--------------------------------------------------------------------------------
+PARTE C — O QUE FOI FEITO (zero-risco, já testado e no repositório)
+--------------------------------------------------------------------------------
+1) AUTH-TEST-FIX — FECHADO. tests/test_auth.py monkeypatchava auth._PATH (global
+   removido na migração); agora monkeypatcha auth._get_path() (a função que substituiu
+   o global). Mudança 100% em código de teste, mesma garantia de isolamento (aponta o
+   armazenamento para tempfile + guard de mtime do users.json de produção). Resultado:
+   27 testes de auth que davam ERROR agora passam; suíte inteira fica verde nos dois
+   runners. (Era o último item da migração que sujava o resultado dos testes.)
+
+2) modules/sequencia_cadencia.py — NOVO. Motor de cadência multi-toque:
+   · _SEQUENCES: trilha por segmento (D+0 reusa canal/script de cadencia; follow-ups
+     definidos aqui). Win-back = 3 toques agressivos; clientes saudáveis = 2 toques leves.
+   · sequence_for / has_sequence — consulta a trilha.
+   · build_sequence(row, today, loja, touches) — estado completo de UM cliente: início
+     (campo sequencia_inicio ou today), passos com data/status/script, próxima_acao e
+     estado (em_andamento/respondeu/concluida). Lê opcionalmente toques_feitos e
+     respondeu da row; senão deriva de `touches`.
+   · STOP-ON-REPLY — respondeu=True (ou um toque com resultado de resposta) encerra a
+     sequência: todos os passos restantes viram "encerrado_resposta" e proxima_acao=None.
+   · next_step — atalho para o próximo toque devido.
+   · advance_sequences(rows, only_due) — fila de todos os clientes ordenada por urgência
+     do próximo toque (atrasado→hoje→agendado→sem-próximo), desempate pela ordem de
+     prioridade do segmento; only_due=True devolve só a fila de trabalho do dia.
+   · sequence_summary — total, por_estado, proximos_por_status, atrasados (KPI de gestão).
+   · count_done_steps / replied_from_touches — conveniências para derivar progresso de
+     uma lista de toques registrados.
+   PURO: stdlib + dateutils + reuso de cadencia; sem I/O/rede/estado/relógio. NÃO
+   importado pelo app.
+
+3) tests/test_sequencia_cadencia.py — NOVO. 27 testes unittest.TestCase (rodam no .bat
+   e no pytest): trilhas, datas=início+offset, status por data, ponteiro de passos,
+   stop-on-reply (via flag e via touches, com precedência da flag), saturação, scripts
+   (D+0 = cadencia, follow-up com nome/loja), ordenação da fila, only_due e summary.
+
+   BASELINE NOVO: pytest 684 ok / 0 erros · unittest discover 632 ok / 0 erros.
+
+--------------------------------------------------------------------------------
+PARTE D — TAREFAS MANUAIS (executar com o APP PARADO; eu entrego a peça, você liga)
+--------------------------------------------------------------------------------
+[SEQ-FIX-1] (NOVO) Ligar a SEQUÊNCIA multi-toque na UI:
+  (a) No cartão do cliente / fila do dia, renderizar um stepper a partir de
+        seq = sequencia_cadencia.build_sequence(row, today=date.today(), loja=loja)
+      Mostrar seq["passos"] como bolinhas ① ② ③ coloridas por status (verde=feito,
+      âmbar=hoje, vermelho=atrasado, cinza=agendado) + ícone do canal e o rótulo
+      textual de status (acessibilidade — não só cor).
+  (b) Estado "respondeu" → faixa verde comemorativa ("Cliente respondeu! 🎉"),
+      escondendo os próximos toques (a sequência parou por design).
+  (c) Persistir o avanço: ao registrar um toque, gravar toques_feitos++ na carteira;
+      ao registrar resposta/venda, gravar respondeu=True (dispara o stop-on-reply).
+      Início da sequência = primeira data de toque (grave em sequencia_inicio).
+  (d) Painel do gerente: usar sequencia_cadencia.sequence_summary(...) p/ o KPI
+      "% da carteira com toque ATRASADO" por loja/vendedor (cobrança do diretor).
+  (e) Fila do dia = advance_sequences(rows, only_due=True) — só atrasados+hoje.
+
+[AUTH-TEST-FIX] — FECHADO nesta iteração (ver PARTE C-1). Pode remover da lista.
+
+[SEC-1] (ABERTO, 10ª confirmação — PRIORIDADE DE SEGURANÇA) data/email_config.json com
+  brevo_api_key em texto puro (xkeysi…, 89 chars), sincronizado no OneDrive e copiado
+  para TODOS os backups. Ação: (1) rotacionar a chave no painel Brevo (considere a atual
+  vazada); (2) adicionar "brevo_api_key" a secure_store.SENSITIVE_KEYS; (3) migrar o valor
+  para o cofre/secrets e parar de gravá-lo no JSON sincronizado.
+
+[RATEIO-FIX-1 / REC-CANAL-FIX-1 / PROJ-FIX-1 / FILA-FIX-1 / COB-FIX-1 / CAD-FIX-1 /
+ META-FIX-1 / ATRIB-FIX-1 / STREAK-FIX-1] — fiações pendentes dos módulos puros das
+  iterações anteriores. Mantidas: cada módulo está pronto e testado; falta plugar na UI
+  com o app parado (detalhes nas iterações respectivas acima).
+
+[RUNNER-1] Rodar_Testes.bat usa `unittest discover`, que ignora testes pytest-style
+  (def test_* soltos). Mitigado escrevendo tudo como unittest.TestCase. Conserto
+  definitivo: trocar o .bat para chamar `pytest -q tests` (pytest já está no venv).
+
+--------------------------------------------------------------------------------
+LIÇÃO DESTA ITERAÇÃO
+--------------------------------------------------------------------------------
+DOIS APRENDIZADOS. (1) "Erro de teste" não é "erro de produção": os 27 ERROS do
+test_auth vinham de o TESTE referenciar um símbolo (_PATH) que a migração removeu do
+módulo — o código de produção estava certo, o teste é que ficou para trás. Distinguir
+isso liberou um conserto seguro (mexer só no teste) que limpou a suíte inteira, sem
+violar a regra de não tocar produção. Vale auditar os "erros antigos" antes de assumir
+que são intocáveis. (2) O salto de VALOR da iteração não foi um módulo novo qualquer e
+sim TRANSFORMAR UMA DECISÃO REPETIDA EM UM PROCESSO: cadência respondia "o que faço com
+ESTE cliente AGORA"; a sequência responde "qual é o PLANO de toques até ele reagir e
+quando paro". Processo > decisão pontual é o que faz um CRM escalar do talento
+individual para a operação inteira — e o stop-on-reply é a parte que protege a marca
+enquanto automatiza a insistência.
+
+--------------------------------------------------------------------------------
+PRÓXIMO ALVO ZERO-RISCO (para a próxima execução)
+--------------------------------------------------------------------------------
+(a) Rateio do TRIMESTRE (cobrança reiterada do diretor): compor rateio_metas.ratear com
+    projecao.quarter_summary — ratear a cota trimestral por pessoa e projetar a fatia de
+    cada um para o fechamento do trimestre. Ambos já são puros; o helper só os compõe.
+(b) Resumo de SEQUÊNCIA por carteira/loja como peça de gestão dedicada (agregar
+    sequence_summary por vendedor) — alimenta o KPI "% atrasado" que o diretor cobrou.
+(c) Continuar TODA fiação que toca .py de produção como tarefa manual na PARTE D, com o
+    app parado. Eu entrego a peça PURA testada; você liga.

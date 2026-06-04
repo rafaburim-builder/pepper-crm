@@ -9,7 +9,7 @@ Por que existe:
   permissões para que mudanças futuras sejam deliberadas.
 
 ESCOPO E SEGURANÇA:
-  100% ISOLADO — cada teste aponta auth._PATH para um arquivo temporário; o
+  100% ISOLADO — cada teste aponta auth._get_path para um arquivo temporário; o
   data/users.json de PRODUÇÃO nunca é lido nem escrito (guard de mtime confirma).
   Rodar com:  venv\\Scripts\\python.exe -m unittest discover -s tests
 """
@@ -26,11 +26,11 @@ from modules import auth  # noqa: E402
 
 
 class _AuthIsolated(unittest.TestCase):
-    """Aponta auth._PATH para tempfile; garante que o users.json de prod não muda."""
+    """Aponta auth._get_path para tempfile; garante que o users.json de prod não muda."""
 
     @classmethod
     def setUpClass(cls):
-        cls._prod_path = auth._PATH
+        cls._prod_path = auth._get_path()
         cls._prod_mtime = (
             os.path.getmtime(cls._prod_path) if os.path.exists(cls._prod_path) else None
         )
@@ -50,11 +50,12 @@ class _AuthIsolated(unittest.TestCase):
         )
         self._tmp.close()
         os.unlink(self._tmp.name)  # começa inexistente
-        self._orig = auth._PATH
-        auth._PATH = self._tmp.name
+        self._orig_get_path = auth._get_path
+        _tmp_name = self._tmp.name
+        auth._get_path = lambda: _tmp_name
 
     def tearDown(self):
-        auth._PATH = self._orig
+        auth._get_path = self._orig_get_path
         if os.path.exists(self._tmp.name):
             os.unlink(self._tmp.name)
 
