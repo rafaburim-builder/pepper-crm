@@ -71,7 +71,25 @@ class BrevoClient:
 
     @classmethod
     def from_config(cls) -> Optional["BrevoClient"]:
-        """Cria client a partir de data/email_config.json. Retorna None se não configurado."""
+        """
+        Cria client buscando credenciais em (ordem de prioridade):
+          1. st.secrets["brevo"] — Streamlit Cloud / secrets.toml
+          2. data/email_config.json — configuração local
+        Retorna None se nenhuma fonte tiver API key.
+        """
+        # 1. st.secrets
+        try:
+            import streamlit as st
+            brevo = st.secrets.get("brevo", {})
+            if brevo.get("api_key"):
+                return cls(
+                    api_key      = brevo["api_key"],
+                    sender_email = brevo.get("sender_email", ""),
+                    sender_name  = brevo.get("sender_name", "Pepper CRM"),
+                )
+        except Exception:
+            pass
+        # 2. email_config.json
         cfg = load_email_config()
         if not cfg.get("brevo_api_key") or not cfg.get("sender_email"):
             return None

@@ -233,14 +233,122 @@ if "auth_user" not in st.session_state:
     st.session_state["auth_user"] = None
 
 if st.session_state["auth_user"] is None:
-    # ── Tela de login ─────────────────────────────────────────────────────────
+    from modules.user_profile import get_avatar_html as _gav
+    from modules.reset_tokens import (
+        create_token as _rt_create, validate_token as _rt_validate,
+        consume_token as _rt_consume, get_login_by_email as _rt_by_email,
+        app_base_url as _rt_base_url,
+    )
+
     _sp         = senha_padrao()
     _remembered = get_remembered_login()
     _auto_ok    = get_auto_login() and bool(_remembered)
 
-    from modules.user_profile import get_avatar_html as _gav
+    # ── Handler de ?reset=TOKEN (link de recuperação) ─────────────────────────
+    _reset_token = st.query_params.get("reset", "")
+    if _reset_token:
+        st.query_params.clear()
+        st.session_state["_reset_token_pending"] = _reset_token
 
-    # Cabeçalho
+    if st.session_state.get("_reset_token_pending"):
+        _tok = st.session_state["_reset_token_pending"]
+        st.markdown(
+            '<div style="max-width:400px;margin:80px auto;">'
+            '<div style="text-align:center;margin-bottom:28px;">'
+            '<span style="font-size:2.2rem;font-weight:900;color:#E84300;">🌶️ Pepper</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        try:
+            _tok_info = _rt_validate(_tok)
+            st.markdown("### 🔑 Criar nova senha")
+            st.caption(f"Conta: **{_tok_info['login']}**")
+            _np1 = st.text_input("Nova senha (mín. 6 caracteres)", type="password", key="reset_p1")
+            _np2 = st.text_input("Confirmar nova senha", type="password", key="reset_p2")
+            if st.button("💾 Salvar nova senha", type="primary", use_container_width=True):
+                if len(_np1) < 6:
+                    st.error("A senha deve ter pelo menos 6 caracteres.")
+                elif _np1 != _np2:
+                    st.error("As senhas não coincidem.")
+                else:
+                    change_password(_tok_info["login"], _np1)
+                    _rt_consume(_tok)
+                    del st.session_state["_reset_token_pending"]
+                    st.success("✅ Senha redefinida com sucesso! Faça login.")
+                    st.rerun()
+        except ValueError as _ve:
+            st.error(str(_ve))
+            if st.button("← Voltar ao login"):
+                del st.session_state["_reset_token_pending"]
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.stop()
+
+    # ── Modo: Esqueci a senha ─────────────────────────────────────────────────
+    if st.session_state.get("_show_forgot"):
+        st.markdown(
+            '<div style="max-width:380px;margin:80px auto;">'
+            '<div style="text-align:center;margin-bottom:28px;">'
+            '<span style="font-size:2.2rem;font-weight:900;color:#E84300;">🌶️ Pepper</span><br>'
+            '<span style="font-size:.85rem;color:#7A6A5A;">Recuperação de senha</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("Digite o e-mail cadastrado na sua conta:")
+        _forgot_email = st.text_input("E-mail", placeholder="seuemail@exemplo.com", key="forgot_email")
+
+        _fc1, _fc2 = st.columns(2)
+        with _fc1:
+            if st.button("Enviar link", type="primary", use_container_width=True, key="btn_send_reset"):
+                _email_input = _forgot_email.strip().lower()
+                if not _email_input or "@" not in _email_input:
+                    st.error("Digite um e-mail válido.")
+                else:
+                    _login_found = _rt_by_email(_email_input)
+                    if not _login_found:
+                        # Não revela se e-mail existe (segurança)
+                        st.success("Se esse e-mail estiver cadastrado, você receberá o link em instantes.")
+                    else:
+                        _tok_new  = _rt_create(_login_found, _email_input)
+                        _base_url = _rt_base_url()
+                        _link     = f"{_base_url}/?reset={_tok_new}"
+                        # Tenta enviar por e-mail
+                        from modules.email_sender import BrevoClient as _BC
+                        _brevo = _BC.from_config()
+                        if _brevo and _brevo.api_key:
+                            _body = (
+                                f"Olá!\n\n"
+                                f"Recebemos uma solicitação de recuperação de senha para sua conta no Pepper CRM.\n\n"
+                                f"Clique no link abaixo para criar uma nova senha (válido por 2 horas, uso único):\n\n"
+                                f"{_link}\n\n"
+                                f"Se você não solicitou a recuperação, ignore este e-mail.\n\n"
+                                f"Pepper CRM — Chilli Beans"
+                            )
+                            _ok, _err = _brevo.send_email(
+                                to_email=_email_input, to_name=_login_found,
+                                subject="Recuperação de senha — Pepper CRM",
+                                body_text=_body,
+                            )
+                            if _ok:
+                                st.success("✅ Link enviado! Verifique sua caixa de entrada.")
+                            else:
+                                # Fallback: mostra o link diretamente
+                                st.warning("Não foi possível enviar o e-mail. Copie o link abaixo:")
+                                st.code(_link)
+                        else:
+                            # E-mail não configurado: exibe o link
+                            st.info("E-mail não configurado. Copie o link abaixo para redefinir a senha:")
+                            st.code(_link)
+                            st.caption("Válido por 2 horas · uso único")
+        with _fc2:
+            if st.button("← Voltar", use_container_width=True, key="btn_back_forgot"):
+                del st.session_state["_show_forgot"]
+                st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.stop()
+
+    # ── Cabeçalho da tela de login ────────────────────────────────────────────
     st.markdown(
         '<div style="max-width:380px;margin:60px auto 0;">'
         '<div style="text-align:center;margin-bottom:32px;">'
@@ -251,18 +359,20 @@ if st.session_state["auth_user"] is None:
     )
 
     if _auto_ok:
-        # ── MODO AUTO-LOGIN: mostra avatar grande + botão de um clique ────────
-        _av_lg   = _gav(_remembered, size=80)
+        # ── MODO AUTO-LOGIN: avatar centralizado + botão de um clique ─────────
+        _av_lg    = _gav(_remembered, size=80)
         _user_obj = get_user_by_login(_remembered)
-        _nome_auto = (_user_obj or {}).get("nome", _remembered) if _user_obj else _remembered
+        _nome_auto = (_user_obj or {}).get("nome", _remembered)
 
+        # Centraliza o avatar com flex
         st.markdown(
-            '<div style="text-align:center;">'
+            '<div style="display:flex;flex-direction:column;align-items:center;'
+            'text-align:center;margin-bottom:20px;">'
             + _av_lg
-            + '<div style="margin:10px 0 4px;font-size:1.1rem;font-weight:700;color:#1C1816;">'
+            + '<div style="margin:12px 0 4px;font-size:1.1rem;font-weight:700;color:#1C1816;">'
             + _nome_auto
             + '</div>'
-            '<div style="font-size:.75rem;color:#9E8E7E;margin-bottom:20px;">Toque para entrar</div>'
+            '<div style="font-size:.75rem;color:#9E8E7E;">Toque para entrar</div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -275,21 +385,23 @@ if st.session_state["auth_user"] is None:
             else:
                 st.error("Usuário não encontrado. Use login e senha.")
 
-        st.markdown(
-            '<div style="text-align:center;margin-top:12px;">'
-            '<span style="font-size:.75rem;color:#9E8E7E;">Não é você? </span>',
-            unsafe_allow_html=True,
-        )
-        if st.button("Usar outra conta", key="btn_outra_conta"):
-            clear_remembered_login()
-            st.rerun()
+        _ca, _cb = st.columns(2)
+        with _ca:
+            if st.button("Usar outra conta", use_container_width=True, key="btn_outra_conta"):
+                clear_remembered_login()
+                st.rerun()
+        with _cb:
+            if st.button("Esqueci a senha", use_container_width=True, key="btn_forgot_auto"):
+                st.session_state["_show_forgot"] = True
+                st.rerun()
 
     else:
         # ── MODO NORMAL: formulário com login + senha ─────────────────────────
         if _remembered:
             _av_sm = _gav(_remembered, size=48)
             st.markdown(
-                '<div style="text-align:center;margin-bottom:16px;">'
+                '<div style="display:flex;flex-direction:column;align-items:center;'
+                'margin-bottom:16px;">'
                 '<div style="display:inline-flex;flex-direction:column;align-items:center;'
                 'gap:6px;background:#F8F4F0;border-radius:12px;padding:12px 24px;">'
                 + _av_sm
@@ -307,10 +419,14 @@ if st.session_state["auth_user"] is None:
             _submit      = st.form_submit_button("Entrar →", type="primary", width="stretch")
 
         st.markdown(
-            f'<p style="text-align:center;font-size:.75rem;color:#9E8E7E;margin-top:12px;">'
+            f'<p style="text-align:center;font-size:.75rem;color:#9E8E7E;margin-top:4px;">'
             f'Primeiro acesso? Senha padrão: <b>{_sp}</b></p>',
             unsafe_allow_html=True,
         )
+
+        if st.button("Esqueci a senha", key="btn_forgot_normal", use_container_width=False):
+            st.session_state["_show_forgot"] = True
+            st.rerun()
 
         if _submit:
             _user = authenticate(_login_in.strip(), _senha_in)
