@@ -211,6 +211,9 @@ st.markdown("""
   [data-testid="stMetricValue"] { font-size: 1.15rem !important; color: #1C1816 !important;
                                    font-family: 'Poppins', sans-serif !important; font-weight: 700 !important; }
   [data-testid="stMetricLabel"] { color: #7A6A5A !important; font-size: .80rem !important; }
+
+  /* ── Remove tooltip "Press Enter to submit form" em todos os campos ── */
+  [data-testid="InputInstructions"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
