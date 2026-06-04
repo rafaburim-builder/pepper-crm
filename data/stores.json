@@ -1,0 +1,26 @@
+{
+  "porto_ferreira": {
+    "id": "porto_ferreira",
+    "nome": "Porto Ferreira",
+    "cnpj": "58179991000100",
+    "rede_id": "rede_001",
+    "endereco": {
+      "rua": "",
+      "numero": "",
+      "bairro": "",
+      "cidade": "Porto Ferreira",
+      "uf": "SP"
+    },
+    "configurada": true,
+    "microvix": {
+      "token": "28F80807-E4C5-4E47-9531-0F0516041542",
+      "cnpj_emp": "58179991000100",
+      "nome_empresa": "SP PORTO FERREIRA - OTICA P FERREIRA LJR",
+      "base_url": "https://webapi.microvix.com.br/1.0/api/integracao"
+    },
+    "atribuicoes": {
+      "rafaburim": "dev"
+    },
+    "criada_em": "04/06/2026"
+  }
+}

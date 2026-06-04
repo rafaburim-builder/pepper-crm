@@ -280,9 +280,9 @@ def _remember_path() -> str:
         return os.path.join(_r, "data", "remember.json")
 
 
-def save_remembered_login(login: str) -> None:
-    """Salva o login para pré-preenchimento no próximo acesso."""
-    _data = {"login": login}
+def save_remembered_login(login: str, auto_login: bool = True) -> None:
+    """Salva o login e flag de acesso automático."""
+    _data = {"login": login, "auto_login": auto_login}
     try:
         path = _remember_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -290,7 +290,7 @@ def save_remembered_login(login: str) -> None:
             json.dump(_data, f)
     except (PermissionError, OSError):
         pass
-    _cloud_sync("remember.json", _data)   # auto-sync Supabase
+    _cloud_sync("remember.json", _data)
 
 
 def get_remembered_login() -> str:
@@ -305,11 +305,32 @@ def get_remembered_login() -> str:
         return ""
 
 
+def get_auto_login() -> bool:
+    """Retorna True se o login automático (sem senha) está habilitado."""
+    try:
+        path = _remember_path()
+        if not os.path.exists(path):
+            return False
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("auto_login", False)
+    except Exception:
+        return False
+
+
+def get_user_by_login(login: str) -> Optional[dict]:
+    """Retorna usuário ativo por login sem verificar senha (usado no auto-login)."""
+    for u in _load():
+        if u.get("login") == login and u.get("ativo", True):
+            return u
+    return None
+
+
 def clear_remembered_login() -> None:
-    """Remove o login salvo."""
+    """Remove o login e flag de auto-login salvos."""
     try:
         path = _remember_path()
         if os.path.exists(path):
             os.remove(path)
     except (PermissionError, OSError):
         pass
+    _cloud_sync("remember.json", {})   # limpa no Supabase também

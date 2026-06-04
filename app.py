@@ -225,6 +225,7 @@ from modules.auth import (
     can, nivel, perfil_display, perfis_criáveis_por,
     cod_vendedor_do_usuario, PERFIL_ICON, PERFIL_LABEL, senha_padrao,
     save_remembered_login, get_remembered_login, clear_remembered_login,
+    get_auto_login, get_user_by_login,
 )
 ensure_default_admin()   # cria admin/pepper2026 na primeira execução
 
@@ -233,68 +234,96 @@ if "auth_user" not in st.session_state:
 
 if st.session_state["auth_user"] is None:
     # ── Tela de login ─────────────────────────────────────────────────────────
-    _sp           = senha_padrao()
-    _remembered   = get_remembered_login()   # login salvo pelo "Lembrar"
+    _sp         = senha_padrao()
+    _remembered = get_remembered_login()
+    _auto_ok    = get_auto_login() and bool(_remembered)
 
-    # Avatar do usuário lembrado (se houver)
-    _remember_avatar = ""
-    if _remembered:
-        from modules.user_profile import get_avatar_html as _gav
-        _remember_avatar = _gav(_remembered, size=56)
+    from modules.user_profile import get_avatar_html as _gav
 
+    # Cabeçalho
     st.markdown(
         '<div style="max-width:380px;margin:60px auto 0;">'
-        '<div style="text-align:center;margin-bottom:28px;">'
+        '<div style="text-align:center;margin-bottom:32px;">'
         '<span style="font-size:2.5rem;font-weight:900;color:#E84300;">🌶️ Pepper</span><br>'
         '<span style="font-size:.9rem;color:#7A6A5A;font-weight:500;">Chilli Beans · CRM</span>'
         '</div>',
         unsafe_allow_html=True,
     )
 
-    # Se há login lembrado, mostra avatar + nome acima do campo
-    if _remembered and _remember_avatar:
+    if _auto_ok:
+        # ── MODO AUTO-LOGIN: mostra avatar grande + botão de um clique ────────
+        _av_lg   = _gav(_remembered, size=80)
+        _user_obj = get_user_by_login(_remembered)
+        _nome_auto = (_user_obj or {}).get("nome", _remembered) if _user_obj else _remembered
+
         st.markdown(
-            f'<div style="text-align:center;margin-bottom:16px;">'
-            f'<div style="display:inline-flex;flex-direction:column;align-items:center;'
-            f'gap:6px;background:#F8F4F0;border-radius:12px;padding:14px 24px;">'
-            f'{_remember_avatar}'
-            f'<span style="font-size:.82rem;font-weight:600;color:#1C1816;">{_remembered}</span>'
-            f'<span style="font-size:.7rem;color:#9E8E7E;">Login salvo</span>'
-            f'</div></div>',
+            '<div style="text-align:center;">'
+            + _av_lg
+            + '<div style="margin:10px 0 4px;font-size:1.1rem;font-weight:700;color:#1C1816;">'
+            + _nome_auto
+            + '</div>'
+            '<div style="font-size:.75rem;color:#9E8E7E;margin-bottom:20px;">Toque para entrar</div>'
+            '</div>',
             unsafe_allow_html=True,
         )
 
-    with st.form("login_form"):
-        _login_in = st.text_input(
-            "Login",
-            value=_remembered,
-            placeholder="seu.login",
-        )
-        _senha_in   = st.text_input("Senha", type="password", placeholder="••••••")
-        _remember_me = st.checkbox(
-            "Lembrar meu login neste dispositivo",
-            value=bool(_remembered),
-        )
-        _submit = st.form_submit_button("Entrar →", type="primary", width="stretch")
-
-    st.markdown(
-        f'<p style="text-align:center;font-size:.75rem;color:#9E8E7E;margin-top:12px;">'
-        f'Primeiro acesso? Use a senha padrão <b>{_sp}</b></p>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    if _submit:
-        _user = authenticate(_login_in.strip(), _senha_in)
-        if _user:
-            if _remember_me:
-                save_remembered_login(_login_in.strip())
+        if st.button("Entrar", type="primary", use_container_width=True, key="btn_autologin"):
+            _u = get_user_by_login(_remembered)
+            if _u:
+                st.session_state["auth_user"] = _u
+                st.rerun()
             else:
-                clear_remembered_login()
-            st.session_state["auth_user"] = _user
+                st.error("Usuário não encontrado. Use login e senha.")
+
+        st.markdown(
+            '<div style="text-align:center;margin-top:12px;">'
+            '<span style="font-size:.75rem;color:#9E8E7E;">Não é você? </span>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Usar outra conta", key="btn_outra_conta"):
+            clear_remembered_login()
             st.rerun()
-        else:
-            st.error("Login ou senha incorretos.")
+
+    else:
+        # ── MODO NORMAL: formulário com login + senha ─────────────────────────
+        if _remembered:
+            _av_sm = _gav(_remembered, size=48)
+            st.markdown(
+                '<div style="text-align:center;margin-bottom:16px;">'
+                '<div style="display:inline-flex;flex-direction:column;align-items:center;'
+                'gap:6px;background:#F8F4F0;border-radius:12px;padding:12px 24px;">'
+                + _av_sm
+                + '<span style="font-size:.8rem;font-weight:600;color:#1C1816;">'
+                + _remembered + '</span>'
+                '<span style="font-size:.68rem;color:#9E8E7E;">Login salvo</span>'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        with st.form("login_form"):
+            _login_in    = st.text_input("Login", value=_remembered, placeholder="seu.login")
+            _senha_in    = st.text_input("Senha", type="password", placeholder="••••••")
+            _remember_me = st.checkbox("Lembrar meu login neste dispositivo", value=bool(_remembered))
+            _submit      = st.form_submit_button("Entrar →", type="primary", width="stretch")
+
+        st.markdown(
+            f'<p style="text-align:center;font-size:.75rem;color:#9E8E7E;margin-top:12px;">'
+            f'Primeiro acesso? Senha padrão: <b>{_sp}</b></p>',
+            unsafe_allow_html=True,
+        )
+
+        if _submit:
+            _user = authenticate(_login_in.strip(), _senha_in)
+            if _user:
+                save_remembered_login(_login_in.strip(), auto_login=_remember_me)
+                if not _remember_me:
+                    clear_remembered_login()
+                st.session_state["auth_user"] = _user
+                st.rerun()
+            else:
+                st.error("Login ou senha incorretos.")
+
+    st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # Usuário autenticado — atalho global
@@ -4028,6 +4057,27 @@ def page_settings():
                 st.success("✅ Meta de mix salva! O comparativo estará disponível na Análise de Contexto.")
                 st.rerun()
 
+    # ── Meta Mensal de Vendas (abaixo do mix) ────────────────────────────────
+    with tab_meta:
+        st.divider()
+        st.markdown("#### 📈 Meta Mensal de Vendas (R$)")
+        st.caption(
+            "Define o valor de vendas líquidas que a loja precisa atingir no mês.  \n"
+            "Aparece no **Bom Dia** como farol 🟢🟡🔴 de progresso do mês."
+        )
+        _meta_mensal_atual = float(cfg.get("meta_mensal_valor") or 0)
+        _meta_mensal_input = st.number_input(
+            "Meta do mês (R$)",
+            min_value=0.0, value=_meta_mensal_atual, step=1000.0,
+            format="%.2f", key="cfg_meta_mensal",
+            help="Zero = sem meta definida (farol não aparece no Bom Dia)"
+        )
+        if st.button("💾 Salvar Meta Mensal", type="primary", key="btn_save_meta_mensal"):
+            cfg.set("meta_mensal_valor", _meta_mensal_input)
+            cfg.save()
+            st.success(f"Meta mensal salva: R$ {_meta_mensal_input:,.2f}")
+            st.rerun()
+
     # ── Aba Usuários (só gerente) ─────────────────────────────────────────────
     with tab_users:
         from modules.auth import NIVEL as _NIVEL_MAP
@@ -5706,6 +5756,46 @@ def page_bom_dia():
     _k2.metric("🟡 Hoje",    _n_hoje)
     _k3.metric("🟢 Semana",  _n_semana)
     _k4.metric("✅ Feitos",  _n_feitos_hoje)
+
+    # ── Card de Meta do Mês ───────────────────────────────────────────────────
+    try:
+        from modules.metas import pace as _pace_fn
+        _meta_val = float(cfg.get("meta_mensal_valor") or 0)
+        if _meta_val > 0 and _df_v is not None and not _df_v.empty:
+            _ini_mes  = _hoje.replace(day=1)
+            _df_mes   = _df_v[
+                (pd.to_datetime(_df_v["data"], errors="coerce") >= pd.Timestamp(_ini_mes)) &
+                (pd.to_datetime(_df_v["data"], errors="coerce") <= pd.Timestamp(_hoje))
+            ] if "data" in _df_v.columns else _df_v
+            _realizado = float(_df_mes["valor_liquido"].sum()) if "valor_liquido" in _df_mes.columns else 0.0
+            _p = _pace_fn(_meta_val, _realizado, today=_hoje)
+            _farol = _p["farol"]
+            _pct   = f"{_p['pct']:.0%}"
+            _falta = _p["falta"]
+            _rnec  = _p.get("ritmo_necessario") or 0
+            _proj  = _p.get("projecao")
+            _label = _p.get("status_label","")
+            st.markdown(
+                f'<div style="background:#FDF8F5;border-radius:12px;padding:12px 16px;'
+                f'margin:12px 0;display:flex;align-items:center;gap:16px;'
+                f'border-left:4px solid #E84300;">'
+                f'<div style="font-size:1.8rem;">{_farol}</div>'
+                f'<div style="flex:1;">'
+                f'<div style="font-size:.72rem;color:#9E8E7E;font-weight:600;text-transform:uppercase;'
+                f'letter-spacing:.05em;">Meta do Mês</div>'
+                f'<div style="font-size:1rem;font-weight:700;color:#1C1816;">'
+                f'R$ {_realizado:,.0f} / R$ {_meta_val:,.0f} &nbsp;·&nbsp; {_pct} &nbsp;·&nbsp; {_label}'
+                f'</div>'
+                + (f'<div style="font-size:.75rem;color:#7A6A5A;">Falta R$ {_falta:,.0f} · '
+                   f'Ritmo necessário: R$ {_rnec:,.0f}/dia'
+                   + (f' · Projeção: R$ {_proj:,.0f}' if _proj else '')
+                   + '</div>' if _falta > 0 else
+                   '<div style="font-size:.75rem;color:#059669;">🎉 Meta do mês batida!</div>')
+                + '</div></div>',
+                unsafe_allow_html=True,
+            )
+    except Exception:
+        pass
 
     if not _acoes:
         st.success(
