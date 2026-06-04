@@ -424,34 +424,57 @@ db  = Database()
 # Executam uma vez por sessão; pushs persistem até admin clicar "Estou ciente"
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── A) Aviso de rotação do token Microvix (a cada 6 meses) ───────────────────
-_token_last_rotation = cfg.get("token_last_rotation", "")
-if cfg.is_configured and not cfg.modo_demo:
-    _show_token_warn = False
-    if not _token_last_rotation:
-        _show_token_warn = True   # nunca rotacionado
-    else:
+# ── A) Aviso de rotação do token Microvix (apenas após 6 meses do 1º uso) ────
+# token_last_rotation e token_configured_at são salvos em loja_config.json
+# (sincronizado no Supabase) para persistir entre sessões no Cloud.
+if cfg.is_configured and not cfg.modo_demo and not st.session_state.get("_token_warn_dismissed"):
+    try:
+        import json as _jcfg_mod
+        _loja_cfg_path = __import__('modules.data_dir', fromlist=['data_path']).data_path("loja_config.json")
         try:
-            _rot_dt = datetime.strptime(_token_last_rotation, "%d/%m/%Y")
-            if (datetime.now() - _rot_dt).days >= 180:
-                _show_token_warn = True
+            with open(_loja_cfg_path, encoding="utf-8") as _lf:
+                _loja_cfg = _jcfg_mod.load(_lf)
         except Exception:
-            _show_token_warn = True
-    if _show_token_warn and not st.session_state.get("_token_warn_dismissed"):
-        with st.container():
-            st.warning(
-                "🔑 **Rotação do token Microvix recomendada.**  \n"
-                f"{'Nunca foi rotacionado.' if not _token_last_rotation else f'Última rotação: {_token_last_rotation} — há mais de 180 dias.'}  \n"
-                "Acesse o painel **admin do Microvix → Integrações → Chave de API** e gere um novo token. "
-                "Depois atualize em ⚙️ Configurações → Credenciais."
-            )
-            _tc1, _tc2 = st.columns([2, 5])
-            with _tc1:
-                if st.button("✅ Estou ciente", key="dismiss_token_warn"):
-                    cfg.set("token_last_rotation", date.today().strftime("%d/%m/%Y"))
-                    cfg.save()
-                    st.session_state["_token_warn_dismissed"] = True
-                    st.rerun()
+            _loja_cfg = {}
+
+        _rot    = _loja_cfg.get("token_last_rotation", "")
+        _conf_at = _loja_cfg.get("token_configured_at", "")
+
+        # Primeira vez: apenas registra a data de configuração, sem aviso
+        if not _conf_at and not _rot:
+            _loja_cfg["token_configured_at"] = date.today().strftime("%d/%m/%Y")
+            try:
+                with open(_loja_cfg_path, "w", encoding="utf-8") as _lf:
+                    _jcfg_mod.dump(_loja_cfg, _lf, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+        else:
+            # Só avisa se já tem 180+ dias desde a última rotação (ou da configuração inicial)
+            _ref_date_str = _rot or _conf_at
+            try:
+                _ref_dt = datetime.strptime(_ref_date_str, "%d/%m/%Y")
+                if (datetime.now() - _ref_dt).days >= 180:
+                    st.warning(
+                        "🔑 **Rotação do token Microvix recomendada.**  \n"
+                        f"Última rotação/configuração: **{_ref_date_str}** — há mais de 6 meses.  \n"
+                        "Acesse o painel **admin do Microvix → Integrações → Chave de API**, "
+                        "gere um novo token e atualize em ⚙️ Configurações → Credenciais."
+                    )
+                    _tc1, _tc2 = st.columns([2, 5])
+                    with _tc1:
+                        if st.button("✅ Estou ciente", key="dismiss_token_warn"):
+                            _loja_cfg["token_last_rotation"] = date.today().strftime("%d/%m/%Y")
+                            try:
+                                with open(_loja_cfg_path, "w", encoding="utf-8") as _lf:
+                                    _jcfg_mod.dump(_loja_cfg, _lf, ensure_ascii=False, indent=2)
+                            except Exception:
+                                pass
+                            st.session_state["_token_warn_dismissed"] = True
+                            st.rerun()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 # ── B) Push de expiração do Certificado A1 (aviso 4 semanas antes) ───────────
 _cert_b64 = cfg.get("sefaz_cert_b64", "")
@@ -539,80 +562,221 @@ if can(_au, "gerente") and st.session_state.client_map:
 if can(_au, "admin"):
     _nav.append("⚙️  Configurações")
 
-# ── CSS global: oculta sidebar + header padrão Streamlit ─────────────────────
+# ── CSS global: oculta sidebar + estilos da top bar fixa laranja ─────────────
 st.markdown("""
 <style>
 [data-testid="stSidebar"],
-[data-testid="collapsedControl"] { display: none !important; }
-[data-testid="stHeader"]         { display: none !important; }
-.main .block-container           { padding-top: 8px !important; }
-/* Radio horizontal: estilo de abas de navegação */
-div[data-testid="stHorizontalBlock"] div[role="radiogroup"] {
-  gap: 2px !important;
+[data-testid="collapsedControl"],
+[data-testid="stHeader"] { display: none !important; }
+
+/* Empurra o conteúdo abaixo da top bar */
+.main .block-container {
+  padding-top: 62px !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
 }
-div[data-testid="stHorizontalBlock"] div[role="radiogroup"] label {
-  border-radius: 8px !important;
-  padding: 5px 10px !important;
-  font-size: .82rem !important;
-  white-space: nowrap !important;
+
+/* ── TOP BAR ── */
+.pepper-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 52px;
+  background: #E84300;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  z-index: 9999;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  font-family: 'Poppins', sans-serif;
+  overflow: visible;
 }
-/* Popover do usuário: alinha à direita */
-div[data-testid="stPopover"] button {
-  width: 100% !important;
-  justify-content: flex-end !important;
-  font-weight: 600 !important;
-  font-size: .84rem !important;
+.ptb-logo {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px 0 14px;
+  white-space: nowrap; flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,.2);
+  height: 100%;
 }
+.ptb-logo b     { font-size: 1rem; font-weight: 900; color: white; letter-spacing: -.5px; }
+.ptb-logo small { font-size: .58rem; color: rgba(255,255,255,.75); display: block; }
+
+/* Nav: ícones com tooltip */
+.ptb-nav {
+  display: flex; align-items: center;
+  flex: 1; height: 100%;
+  overflow: hidden;
+}
+.ptb-nav-item {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 100%;
+  color: rgba(255,255,255,.85);
+  text-decoration: none;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.ptb-nav-item:hover  { background: rgba(0,0,0,.12); color: white; }
+.ptb-nav-item.active { background: rgba(0,0,0,.2); color: white; }
+
+/* Tooltip ao passar o mouse */
+.ptb-nav-item::after {
+  content: attr(data-label);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.8);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: .72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+  z-index: 10002;
+}
+.ptb-nav-item:hover::after { opacity: 1; }
+
+/* Botão do usuário */
+.ptb-user-wrap { position: relative; flex-shrink: 0; margin-left: auto; padding: 0 12px; height: 100%; display: flex; align-items: center; border-left: 1px solid rgba(255,255,255,.2); }
+.ptb-user-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,.14); border: none; border-radius: 8px;
+  padding: 5px 12px; cursor: pointer;
+  color: white; font-family: 'Poppins',sans-serif;
+  font-size: .82rem; font-weight: 600; white-space: nowrap;
+  transition: background .15s;
+}
+.ptb-user-btn:hover  { background: rgba(0,0,0,.22); }
+.ptb-av {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .68rem; font-weight: 800; color: white; flex-shrink: 0;
+}
+/* Dropdown */
+.ptb-dd {
+  display: none; position: absolute;
+  top: calc(100% + 4px); right: 0;
+  min-width: 240px; background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.16);
+  border: 1px solid #EBE5DE;
+  z-index: 10001; overflow: hidden;
+}
+.ptb-dd.open { display: block; }
+.ptb-dd-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; background: #FDF8F5; }
+.ptb-dd-av   { width: 42px; height: 42px; border-radius: 50%; background: #E84300; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .95rem; font-weight: 800; color: white; }
+.ptb-dd-nome { font-size: .87rem; font-weight: 700; color: #1C1816; white-space: nowrap; }
+.ptb-dd-sub  { font-size: .7rem; color: #7A6A5A; white-space: nowrap; }
+.ptb-dd-loja { font-size: .68rem; color: #9E8E7E; white-space: nowrap; }
+.ptb-dd-sep  { height: 1px; background: #EBE5DE; margin: 2px 0; }
+.ptb-dd-btn  { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 16px; background: none; border: none; text-align: left; font-size: .83rem; font-family: 'Poppins',sans-serif; color: #1C1816; cursor: pointer; white-space: nowrap; transition: background .1s; }
+.ptb-dd-btn:hover   { background: #F8F4F0; }
+.ptb-dd-btn.danger  { color: #DC2626; }
+.ptb-dd-btn.danger:hover { background: #FEF2F2; }
+
 @media (max-width: 768px) {
-  .pepper-topbar-row { display: none !important; }
+  .pepper-topbar { display: none !important; }
+  .main .block-container { padding-top: 8px !important; }
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── TOP BAR: componentes nativos Streamlit (logo · nav · usuário) ─────────────
-_status_txt = "🟢 AO VIVO" if cfg.is_configured and not cfg.modo_demo else ("🟡 DEMO" if cfg.modo_demo else "⚠️ SEM CONFIG")
-_logo_md = (
-    f'<div style="padding:4px 0;">'
-    f'<span style="font-size:1.1rem;font-weight:900;color:#E84300;letter-spacing:-.5px;">🌶️ Pepper</span><br>'
-    f'<span style="font-size:.6rem;color:#9E8E7E;">{_rede_nome}</span>'
-    f'</div>'
+# ── Roteamento: ?nav=N determina a página ─────────────────────────────────────
+_qp_page = st.query_params.get("page", "")
+_qp_nav  = st.query_params.get("nav",  "")
+
+if _qp_page == "sair":
+    st.query_params.clear()
+    st.session_state["auth_user"] = None
+    st.rerun()
+elif _qp_page == "perfil":
+    st.query_params.clear()
+    st.session_state["_show_perfil"] = True
+elif _qp_page == "senha":
+    st.query_params.clear()
+    st.session_state["_show_senha"] = True
+
+try:
+    _nav_active = max(0, min(int(_qp_nav), len(_nav) - 1))
+except (ValueError, TypeError):
+    _nav_active = 0
+page = _nav[_nav_active]
+
+# ── Monta HTML da top bar (string concat — sem f-string) ──────────────────────
+_initials = "".join(w[0].upper() for w in (_au.get("nome") or "?").split()[:2]) or "?"
+
+_html_logo = (
+    '<div class="ptb-logo">'
+    '<span style="font-size:1.4rem;flex-shrink:0;">🌶️</span>'
+    '<div><b>Pepper</b><small>' + _rede_nome + '</small></div>'
+    '</div>'
 )
 
-_tb_logo, _tb_nav, _tb_user = st.columns([1.6, 7, 1.6], gap="small", vertical_alignment="center")
+_html_nav = '<div class="ptb-nav">'
+for _ni, _n in enumerate(_nav):
+    _parts  = _n.strip().split()
+    _icon   = _parts[0]                     # emoji
+    _label  = " ".join(_parts[1:]) if len(_parts) > 1 else _n.strip()
+    _cls    = ' active' if _ni == _nav_active else ''
+    _html_nav += (
+        '<a href="?nav=' + str(_ni) + '"'
+        ' class="ptb-nav-item' + _cls + '"'
+        ' data-label="' + _label + '">'
+        + _icon +
+        '</a>'
+    )
+_html_nav += '</div>'
 
-with _tb_logo:
-    st.markdown(_logo_md, unsafe_allow_html=True)
-
-with _tb_nav:
-    page = st.radio("nav", _nav, horizontal=True, label_visibility="collapsed")
-
-with _tb_user:
-    with st.popover(f"👤 {_nome_first} ▾", use_container_width=True):
-        # Avatar + info do usuário
-        _pc1, _pc2 = st.columns([1, 2.2], gap="small")
-        with _pc1:
-            st.markdown(_avatar_html_lg, unsafe_allow_html=True)
-        with _pc2:
-            st.markdown(
-                f"**{_au.get('nome','?')}**  \n"
-                f"<small style='color:#7A6A5A;'>{_label_perfil}</small>"
-                + (f"  \n<small style='color:#9E8E7E;'>🏪 {_loja_dd}</small>" if _loja_dd else ""),
-                unsafe_allow_html=True,
-            )
-        st.divider()
-        if st.button("✏️  Editar perfil", use_container_width=True, key="btn_dd_perfil"):
-            st.session_state["_show_perfil"] = True
-            st.rerun()
-        if st.button("🔑  Trocar senha", use_container_width=True, key="btn_dd_senha"):
-            st.session_state["_show_senha"] = True
-            st.rerun()
-        st.divider()
-        if st.button("🚪  Sair", use_container_width=True, key="btn_dd_sair", type="primary"):
-            st.session_state["auth_user"] = None
-            st.rerun()
+_loja_row = ('<div class="ptb-dd-loja">🏪 ' + _loja_dd + '</div>') if _loja_dd else ''
+_html_user = (
+    '<div class="ptb-user-wrap" id="ptbWrap">'
+      '<button class="ptb-user-btn" onclick="ptbToggle(event)">'
+        '<div class="ptb-av">' + _initials + '</div>'
+        + _nome_first + ' ▾'
+      '</button>'
+      '<div class="ptb-dd" id="ptbDD">'
+        '<div class="ptb-dd-head">'
+          '<div class="ptb-dd-av">' + _initials + '</div>'
+          '<div>'
+            '<div class="ptb-dd-nome">' + (_au.get('nome') or '') + '</div>'
+            '<div class="ptb-dd-sub">' + _label_perfil + '</div>'
+            + _loja_row +
+          '</div>'
+        '</div>'
+        '<div class="ptb-dd-sep"></div>'
+        '<button class="ptb-dd-btn" onclick="ptbAction(\'perfil\')">✏️  Editar perfil</button>'
+        '<button class="ptb-dd-btn" onclick="ptbAction(\'senha\')">🔑  Trocar senha</button>'
+        '<div class="ptb-dd-sep"></div>'
+        '<button class="ptb-dd-btn danger" onclick="ptbAction(\'sair\')">🚪  Sair</button>'
+      '</div>'
+    '</div>'
+)
+_html_script = (
+    '<script>'
+    'function ptbToggle(e){'
+      'e.stopPropagation();'
+      'document.getElementById("ptbDD").classList.toggle("open");'
+    '}'
+    'function ptbAction(a){window.location.href="?page="+a;}'
+    'document.addEventListener("click",function(e){'
+      'if(!e.target.closest("#ptbWrap")){'
+        'var m=document.getElementById("ptbDD");'
+        'if(m)m.classList.remove("open");'
+      '}'
+    '});'
+    '</script>'
+)
 
 st.markdown(
-    '<hr style="margin:4px 0 16px;border:none;border-top:1px solid #EBE5DE;">',
+    '<div class="pepper-topbar">'
+    + _html_logo + _html_nav + _html_user
+    + '</div>'
+    + _html_script,
     unsafe_allow_html=True,
 )
 
