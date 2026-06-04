@@ -510,253 +510,82 @@ if can(_au, "gerente") and st.session_state.client_map:
 if can(_au, "admin"):
     _nav.append("⚙️  Configurações")
 
-# ── TOP BAR (logo esquerda · nav central · user direita) ──────────────────────
-# Injetada antes da sidebar para aparecer no topo em ambas as versões.
-_status_pill = ""
-if cfg.modo_demo:
-    _status_pill = '<span class="pill-demo" style="font-size:.65rem;padding:2px 8px;">DEMO</span>'
-elif cfg.is_configured:
-    _status_pill = '<span class="pill-live" style="font-size:.65rem;padding:2px 8px;">● AO VIVO</span>'
-
-_loja_dd_html = f'<span class="ptb-dd-loja">🏪 {_loja_dd}</span>' if _loja_dd else ""
-
-st.markdown(f"""
+# ── CSS global: oculta sidebar + header padrão Streamlit ─────────────────────
+st.markdown("""
 <style>
-/* ── TOP BAR ──────────────────────────────────────── */
-.pepper-topbar {{
-  position:      fixed;
-  top:           0; left: 0; right: 0;
-  height:        54px;
-  background:    white;
-  border-bottom: 1px solid #EBE5DE;
-  display:       flex;
-  align-items:   center;
-  justify-content: space-between;
-  padding:       0 20px;
-  z-index:       9999;
-  box-shadow:    0 1px 6px rgba(0,0,0,.07);
-  font-family:   'Poppins', sans-serif;
-}}
-.ptb-logo {{
-  display: flex; align-items: center; gap: 10px;
-}}
-.ptb-logo-name {{ display: flex; flex-direction: column; line-height: 1.15; }}
-.ptb-logo-name b     {{ font-size: 1.15rem; font-weight: 900; color: #E84300; letter-spacing: -.5px; }}
-.ptb-logo-name small {{ font-size: .62rem; color: #9E8E7E; }}
-
-/* ── Botão do usuário ── */
-.ptb-user-wrap {{ position: relative; }}
-.ptb-user-btn {{
-  display:     flex;
-  align-items: center;
-  gap:         8px;
-  background:  none;
-  border:      none;
-  border-radius: 8px;
-  padding:     6px 10px;
-  cursor:      pointer;
-  font-family: 'Poppins', sans-serif;
-  transition:  background .15s;
-  color:       #1C1816;
-}}
-.ptb-user-btn:hover {{ background: rgba(0,0,0,.06); }}
-.ptb-user-btn:active {{ background: rgba(0,0,0,.10); }}
-.ptb-user-name {{ font-size: .82rem; font-weight: 600; }}
-.ptb-chevron  {{ font-size: .7rem; opacity: .5; transition: transform .2s; }}
-.ptb-user-btn.open .ptb-chevron {{ transform: rotate(180deg); }}
-
-/* ── Dropdown ── */
-.ptb-dropdown {{
-  display:       none;
-  position:      absolute;
-  top:           calc(100% + 6px);
-  right:         0;
-  min-width:     230px;
-  background:    white;
-  border-radius: 12px;
-  box-shadow:    0 8px 32px rgba(0,0,0,.14);
-  border:        1px solid #EBE5DE;
-  z-index:       10001;
-  overflow:      hidden;
-  animation:     ptbFadeIn .15s ease;
-}}
-.ptb-dropdown.open {{ display: block; }}
-@keyframes ptbFadeIn {{
-  from {{ opacity: 0; transform: translateY(-6px); }}
-  to   {{ opacity: 1; transform: translateY(0); }}
-}}
-
-/* cabeçalho do dropdown */
-.ptb-dd-header {{
-  display:     flex;
-  align-items: center;
-  gap:         12px;
-  padding:     16px 16px 12px;
-}}
-.ptb-dd-info {{
-  display:        flex;
-  flex-direction: column;
-  gap:            2px;
-  min-width: 0;
-}}
-.ptb-dd-nome  {{ font-size: .88rem; font-weight: 700; color: #1C1816; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-.ptb-dd-cargo {{ font-size: .72rem; color: #7A6A5A; }}
-.ptb-dd-loja  {{ font-size: .72rem; color: #9E8E7E; }}
-
-/* separador */
-.ptb-dd-sep {{ height: 1px; background: #EBE5DE; margin: 2px 0; }}
-
-/* itens do dropdown */
-.ptb-dd-item {{
-  display:     flex;
-  align-items: center;
-  gap:         10px;
-  width:       100%;
-  padding:     11px 16px;
-  background:  none;
-  border:      none;
-  text-align:  left;
-  font-size:   .84rem;
-  font-family: 'Poppins', sans-serif;
-  color:       #1C1816;
-  cursor:      pointer;
-  transition:  background .1s;
-}}
-.ptb-dd-item:hover {{ background: #F8F4F0; }}
-.ptb-dd-item.danger {{ color: #DC2626; }}
-.ptb-dd-item.danger:hover {{ background: #FEF2F2; }}
-
-/* Empurra conteúdo para baixo da top bar */
-.main .block-container {{ padding-top: 70px !important; }}
-[data-testid="stHeader"] {{ display: none !important; }}
-[data-testid="stSidebar"] > div:first-child {{ padding-top: 70px !important; }}
-
-@media (max-width: 768px) {{
-  .pepper-topbar {{ display: none !important; }}
-}}
+[data-testid="stSidebar"],
+[data-testid="collapsedControl"] { display: none !important; }
+[data-testid="stHeader"]         { display: none !important; }
+.main .block-container           { padding-top: 8px !important; }
+/* Radio horizontal: estilo de abas de navegação */
+div[data-testid="stHorizontalBlock"] div[role="radiogroup"] {
+  gap: 2px !important;
+}
+div[data-testid="stHorizontalBlock"] div[role="radiogroup"] label {
+  border-radius: 8px !important;
+  padding: 5px 10px !important;
+  font-size: .82rem !important;
+  white-space: nowrap !important;
+}
+/* Popover do usuário: alinha à direita */
+div[data-testid="stPopover"] button {
+  width: 100% !important;
+  justify-content: flex-end !important;
+  font-weight: 600 !important;
+  font-size: .84rem !important;
+}
+@media (max-width: 768px) {
+  .pepper-topbar-row { display: none !important; }
+}
 </style>
-
-<!-- ── PEPPER TOP BAR ────────────────────────────────────────── -->
-<div class="pepper-topbar">
-
-  <!-- Logo esquerda -->
-  <div class="ptb-logo">
-    <span style="font-size:1.6rem;line-height:1;">🌶️</span>
-    <div class="ptb-logo-name">
-      <b>Pepper</b>
-      <small>{_rede_nome}</small>
-    </div>
-    &nbsp;{_status_pill}
-  </div>
-
-  <!-- Botão usuário + dropdown direita -->
-  <div class="ptb-user-wrap" id="ptbWrap">
-    <button class="ptb-user-btn" id="ptbBtn" onclick="ptbToggle(event)">
-      {_avatar_html}
-      <span class="ptb-user-name">{_nome_first}</span>
-      <span class="ptb-chevron">▾</span>
-    </button>
-
-    <div class="ptb-dropdown" id="ptbMenu">
-      <!-- Cabeçalho com info do usuário -->
-      <div class="ptb-dd-header">
-        {_avatar_html_lg}
-        <div class="ptb-dd-info">
-          <span class="ptb-dd-nome">{_au.get('nome','?')}</span>
-          <span class="ptb-dd-cargo">{_label_perfil}</span>
-          {_loja_dd_html}
-        </div>
-      </div>
-      <div class="ptb-dd-sep"></div>
-
-      <!-- Ações -->
-      <button class="ptb-dd-item" onclick="ptbAction('perfil')">✏️&nbsp; Editar perfil</button>
-      <button class="ptb-dd-item" onclick="ptbAction('senha')">🔑&nbsp; Trocar senha</button>
-      <div class="ptb-dd-sep"></div>
-      <button class="ptb-dd-item danger" onclick="ptbAction('sair')">🚪&nbsp; Sair</button>
-    </div>
-  </div>
-
-</div>
-
-<script>
-function ptbToggle(e) {{
-  e.stopPropagation();
-  var btn  = document.getElementById('ptbBtn');
-  var menu = document.getElementById('ptbMenu');
-  var open = menu.classList.toggle('open');
-  btn.classList.toggle('open', open);
-}}
-function ptbAction(action) {{
-  window.location.href = '?page=' + action;
-}}
-document.addEventListener('click', function(e) {{
-  if (!e.target.closest('#ptbWrap')) {{
-    var menu = document.getElementById('ptbMenu');
-    var btn  = document.getElementById('ptbBtn');
-    if (menu) {{ menu.classList.remove('open'); }}
-    if (btn)  {{ btn.classList.remove('open');  }}
-  }}
-}});
-</script>
 """, unsafe_allow_html=True)
 
-# ── Resolve ações do dropdown da top bar ─────────────────────────────────────
-_qp_page = st.query_params.get("page", "")
-if _qp_page == "sair":
-    st.query_params.clear()
-    st.session_state["auth_user"] = None
-    st.rerun()
-elif _qp_page == "perfil":
-    st.query_params.clear()
-    st.session_state["_show_perfil"] = True
-elif _qp_page == "senha":
-    st.query_params.clear()
-    st.session_state["_show_senha"] = True
+# ── TOP BAR: componentes nativos Streamlit (logo · nav · usuário) ─────────────
+_status_txt = "🟢 AO VIVO" if cfg.is_configured and not cfg.modo_demo else ("🟡 DEMO" if cfg.modo_demo else "⚠️ SEM CONFIG")
+_logo_md = (
+    f'<div style="padding:4px 0;">'
+    f'<span style="font-size:1.1rem;font-weight:900;color:#E84300;letter-spacing:-.5px;">🌶️ Pepper</span><br>'
+    f'<span style="font-size:.6rem;color:#9E8E7E;">{_rede_nome}</span>'
+    f'</div>'
+)
 
-# ── Sidebar (apenas navegação, sem dados de usuário) ──────────────────────────
-with st.sidebar:
-    st.markdown(
-        '<div style="padding:4px 0 12px;">'
-        '<span style="font-size:.7rem;font-weight:600;color:#9E8E7E;text-transform:uppercase;'
-        'letter-spacing:.05em;">Menu</span>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    page = st.radio("Navegação", _nav, label_visibility="collapsed")
-    st.divider()
-    # Logout no rodapé da sidebar
-    if st.button("🚪 Sair", key="btn_logout", width="stretch"):
-        st.session_state["auth_user"] = None
-        st.rerun()
-    st.caption("v1.8.8 · Pepper")
-    # ── Widget de atualizações ────────────────────────────────────────────────
-    try:
-        import json as _json
-        _upd_log = os.path.join(ROOT, "data", "update_log.json")
-        if os.path.exists(_upd_log):
-            with open(_upd_log, encoding="utf-8") as _f:
-                _upd_hist = _json.load(_f)
-            if _upd_hist:
-                _last = _upd_hist[0]
-                _atualizados = _last.get("atualizados", [])
-                _ignorados   = _last.get("ignorados_major", [])
-                _erros       = _last.get("erros", [])
-                if _atualizados:
-                    with st.expander(f"🆕 {len(_atualizados)} lib(s) atualizada(s)"):
-                        st.caption(f"Última atualização: {_last.get('data','?')}")
-                        for _u in _atualizados:
-                            st.caption(f"• {_u['pacote']} {_u['de']} → {_u['para']}")
-                elif _erros:
-                    with st.expander("⚠️ Falha na atualização"):
-                        st.caption(f"{_last.get('data','?')}: {_erros}")
-                if _ignorados:
-                    with st.expander(f"🔔 {len(_ignorados)} update(s) major pendente(s)"):
-                        st.caption("Requerem revisão manual antes de instalar:")
-                        for _ig in _ignorados:
-                            st.caption(f"• {_ig['pacote']} {_ig['atual']} → {_ig['disponivel']}")
-    except Exception:
-        pass
+_tb_logo, _tb_nav, _tb_user = st.columns([1.6, 7, 1.6], gap="small", vertical_alignment="center")
+
+with _tb_logo:
+    st.markdown(_logo_md, unsafe_allow_html=True)
+
+with _tb_nav:
+    page = st.radio("nav", _nav, horizontal=True, label_visibility="collapsed")
+
+with _tb_user:
+    with st.popover(f"👤 {_nome_first} ▾", use_container_width=True):
+        # Avatar + info do usuário
+        _pc1, _pc2 = st.columns([1, 2.2], gap="small")
+        with _pc1:
+            st.markdown(_avatar_html_lg, unsafe_allow_html=True)
+        with _pc2:
+            st.markdown(
+                f"**{_au.get('nome','?')}**  \n"
+                f"<small style='color:#7A6A5A;'>{_label_perfil}</small>"
+                + (f"  \n<small style='color:#9E8E7E;'>🏪 {_loja_dd}</small>" if _loja_dd else ""),
+                unsafe_allow_html=True,
+            )
+        st.divider()
+        if st.button("✏️  Editar perfil", use_container_width=True, key="btn_dd_perfil"):
+            st.session_state["_show_perfil"] = True
+            st.rerun()
+        if st.button("🔑  Trocar senha", use_container_width=True, key="btn_dd_senha"):
+            st.session_state["_show_senha"] = True
+            st.rerun()
+        st.divider()
+        if st.button("🚪  Sair", use_container_width=True, key="btn_dd_sair", type="primary"):
+            st.session_state["auth_user"] = None
+            st.rerun()
+
+st.markdown(
+    '<hr style="margin:4px 0 16px;border:none;border-top:1px solid #EBE5DE;">',
+    unsafe_allow_html=True,
+)
 
 # ── Paleta e helpers ──────────────────────────────────────────────────────────
 CAT_NAMES  = {
