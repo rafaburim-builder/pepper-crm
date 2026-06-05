@@ -1,5 +1,5 @@
 """
-Pepper — Análise e Sugestão de Compras  v1.8.8
+Pepper — Análise e Sugestão de Compras  v1.8.9
 Chilli Beans · Óticas
 Rodado com: streamlit run app.py
 """
@@ -274,7 +274,7 @@ if st.session_state["auth_user"] is None:
             st.caption(f"Conta: **{_tok_info['login']}**")
             _np1 = st.text_input("Nova senha (mín. 6 caracteres)", type="password", key="reset_p1")
             _np2 = st.text_input("Confirmar nova senha", type="password", key="reset_p2")
-            if st.button("💾 Salvar nova senha", type="primary", use_container_width=True):
+            if st.button("💾 Salvar nova senha", type="primary", width="stretch"):
                 if len(_np1) < 6:
                     st.error("A senha deve ter pelo menos 6 caracteres.")
                 elif _np1 != _np2:
@@ -308,7 +308,7 @@ if st.session_state["auth_user"] is None:
 
         _fc1, _fc2 = st.columns(2)
         with _fc1:
-            if st.button("Enviar link", type="primary", use_container_width=True, key="btn_send_reset"):
+            if st.button("Enviar link", type="primary", width="stretch", key="btn_send_reset"):
                 _raw = _forgot_input.strip()
                 if not _raw:
                     st.error("Preencha o campo.")
@@ -365,7 +365,7 @@ if st.session_state["auth_user"] is None:
                             st.code(_link)
                             st.caption("Válido por 2 horas · uso único")
         with _fc2:
-            if st.button("← Voltar", use_container_width=True, key="btn_back_forgot"):
+            if st.button("← Voltar", width="stretch", key="btn_back_forgot"):
                 del st.session_state["_show_forgot"]
                 st.rerun()
 
@@ -401,7 +401,7 @@ if st.session_state["auth_user"] is None:
             unsafe_allow_html=True,
         )
 
-        if st.button("Entrar", type="primary", use_container_width=True, key="btn_autologin"):
+        if st.button("Entrar", type="primary", width="stretch", key="btn_autologin"):
             _u = get_user_by_login(_remembered)
             if _u:
                 st.session_state["auth_user"] = _u
@@ -411,11 +411,11 @@ if st.session_state["auth_user"] is None:
 
         _ca, _cb = st.columns(2)
         with _ca:
-            if st.button("Usar outra conta", use_container_width=True, key="btn_outra_conta"):
+            if st.button("Usar outra conta", width="stretch", key="btn_outra_conta"):
                 clear_remembered_login()
                 st.rerun()
         with _cb:
-            if st.button("Esqueci a senha", use_container_width=True, key="btn_forgot_auto"):
+            if st.button("Esqueci a senha", width="stretch", key="btn_forgot_auto"):
                 st.session_state["_show_forgot"] = True
                 st.rerun()
 
@@ -448,7 +448,7 @@ if st.session_state["auth_user"] is None:
             unsafe_allow_html=True,
         )
 
-        if st.button("Esqueci a senha", key="btn_forgot_normal", use_container_width=False):
+        if st.button("Esqueci a senha", key="btn_forgot_normal", width="content"):
             st.session_state["_show_forgot"] = True
             st.rerun()
 
@@ -6662,9 +6662,21 @@ if check_onboarding():
 
 # ── Router Desktop ────────────────────────────────────────────────────────────
 # Perfil e troca de senha: acessíveis apenas via dropdown da top bar
-if st.session_state.pop("_show_perfil", False):
+#
+# IMPORTANTE: usamos .get() (não .pop()) para que o flag persista entre
+# reruns causados por digitação. O flag só é removido quando o usuário
+# clica explicitamente em outro item da navegação.
+_prev_nav = st.session_state.get("_prev_nav_sel")
+_curr_nav = st.session_state.get("topbar_nav")
+if _prev_nav is not None and _prev_nav != _curr_nav:
+    # Usuário trocou de aba → fecha perfil/senha
+    st.session_state.pop("_show_perfil", None)
+    st.session_state.pop("_show_senha", None)
+st.session_state["_prev_nav_sel"] = _curr_nav
+
+if st.session_state.get("_show_perfil"):
     page_profile()
-elif st.session_state.pop("_show_senha", False):
+elif st.session_state.get("_show_senha"):
     page_change_password()
 elif page == "🌄  Bom Dia":
     page_bom_dia()
