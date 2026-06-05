@@ -51,6 +51,8 @@ FILES = [
     "stores.json",
     "redes.json",
     "remember.json",
+    "lgpd_consent.json",
+    "lgpd_optout.json",
 ]
 
 print("Sincronizando com Supabase...")
