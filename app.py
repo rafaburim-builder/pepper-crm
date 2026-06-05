@@ -232,6 +232,15 @@ ensure_default_admin()   # cria admin/pepper2026 na primeira execução
 if "auth_user" not in st.session_state:
     st.session_state["auth_user"] = None
 
+# ── Auto-login silencioso (sessão caiu por navegação mas "lembrar" está ativo) ─
+if st.session_state["auth_user"] is None:
+    _rl = get_remembered_login()
+    if _rl and get_auto_login():
+        _ral_user = get_user_by_login(_rl)
+        if _ral_user:
+            st.session_state["auth_user"] = _ral_user
+            st.rerun()
+
 if st.session_state["auth_user"] is None:
     from modules.user_profile import get_avatar_html as _gav
     from modules.reset_tokens import (
@@ -707,7 +716,7 @@ st.markdown("""
   padding-right: 1rem !important;
 }
 
-/* ── TOP BAR ── */
+/* ── TOP BAR HTML (logo + user dropdown) ── */
 .pepper-topbar {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -715,61 +724,66 @@ st.markdown("""
   background: #E84300;
   display: flex;
   align-items: center;
-  gap: 0;
+  justify-content: space-between;
   z-index: 9999;
   box-shadow: 0 2px 6px rgba(0,0,0,.2);
   font-family: 'Poppins', sans-serif;
   overflow: visible;
+  pointer-events: none;   /* deixa cliques passarem para o radio abaixo */
 }
+.pepper-topbar .ptb-logo,
+.pepper-topbar .ptb-user-wrap { pointer-events: all; }
+
 .ptb-logo {
   display: flex; align-items: center; gap: 8px;
   padding: 0 16px 0 14px;
   white-space: nowrap; flex-shrink: 0;
-  border-right: 1px solid rgba(255,255,255,.2);
   height: 100%;
 }
 .ptb-logo b     { font-size: 1rem; font-weight: 900; color: white; letter-spacing: -.5px; }
 .ptb-logo small { font-size: .58rem; color: rgba(255,255,255,.75); display: block; }
 
-/* Nav: ícones com tooltip */
-.ptb-nav {
-  display: flex; align-items: center;
-  flex: 1; height: 100%;
-  overflow: hidden;
+/* ── Navegação st.radio posicionada na barra laranja ── */
+/* O radio fica logo abaixo do topo mas com margem negativa entra na barra */
+div[data-testid="stRadio"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 220px !important;
+  right: 160px !important;
+  height: 52px !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
 }
-.ptb-nav-item {
-  position: relative;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 48px; height: 100%;
-  color: rgba(255,255,255,.85);
-  text-decoration: none;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-  transition: background .15s;
+div[data-testid="stRadio"] > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  flex-wrap: nowrap !important;
 }
-.ptb-nav-item:hover  { background: rgba(0,0,0,.12); color: white; }
-.ptb-nav-item.active { background: rgba(0,0,0,.2); color: white; }
-
-/* Tooltip ao passar o mouse */
-.ptb-nav-item::after {
-  content: attr(data-label);
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,.8);
-  color: white;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: .72rem;
-  font-weight: 500;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .15s;
-  z-index: 10002;
+div[data-testid="stRadio"] label {
+  color: rgba(255,255,255,.85) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 1.2rem !important;
+  cursor: pointer !important;
+  transition: background .15s !important;
+  white-space: nowrap !important;
 }
-.ptb-nav-item:hover::after { opacity: 1; }
+div[data-testid="stRadio"] label:hover {
+  background: rgba(0,0,0,.12) !important;
+  color: white !important;
+}
+div[data-testid="stRadio"] label[data-selected="true"],
+div[data-testid="stRadio"] label[aria-checked="true"] {
+  background: rgba(0,0,0,.2) !important;
+  color: white !important;
+  font-weight: 700 !important;
+}
+/* Esconde o círculo padrão do radio */
+div[data-testid="stRadio"] input[type="radio"] { display: none !important; }
 
 /* Botão do usuário */
 .ptb-user-wrap {
@@ -838,71 +852,54 @@ elif _qp_page == "senha":
     st.query_params.clear()
     st.session_state["_show_senha"] = True
 
-try:
-    _nav_active = max(0, min(int(_qp_nav), len(_nav) - 1))
-except (ValueError, TypeError):
-    _nav_active = 0
-page = _nav[_nav_active]
-
-# ── Monta HTML da top bar (string concat — sem f-string) ──────────────────────
+# ── Top bar: logo + user dropdown (HTML estático) ────────────────────────────
 _initials = "".join(w[0].upper() for w in (_au.get("nome") or "?").split()[:2]) or "?"
-
-_html_logo = (
-    '<div class="ptb-logo">'
-    '<span style="font-size:1.4rem;flex-shrink:0;">🌶️</span>'
-    '<div><b>Pepper</b><small>' + _rede_nome + '</small></div>'
-    '</div>'
-)
-
-# Nav: target="_self" força navegação na mesma aba
-_html_nav = '<div class="ptb-nav">'
-for _ni, _n in enumerate(_nav):
-    _parts = _n.strip().split()
-    _icon  = _parts[0]
-    _lbl   = " ".join(_parts[1:]) if len(_parts) > 1 else _n.strip()
-    _cls   = ' active' if _ni == _nav_active else ''
-    _html_nav += (
-        '<a href="?nav=' + str(_ni) + '" target="_self"'
-        ' class="ptb-nav-item' + _cls + '"'
-        ' data-label="' + _lbl + '">'
-        + _icon + '</a>'
-    )
-_html_nav += '</div>'
-
-# Dropdown do usuário — toggle via CSS :focus-within (sem JavaScript)
-# Clicar no botão dá focus → dropdown aparece
-# Clicar fora → focus some → dropdown fecha
 _loja_row = ('<div class="ptb-dd-loja">🏪 ' + _loja_dd + '</div>') if _loja_dd else ''
-_html_user = (
-    '<div class="ptb-user-wrap">'
-      '<button class="ptb-user-btn">'
-        '<div class="ptb-av">' + _initials + '</div>'
-        + _nome_first + ' ▾'
-      '</button>'
-      '<div class="ptb-dd">'
-        '<div class="ptb-dd-head">'
-          '<div class="ptb-dd-av">' + _initials + '</div>'
-          '<div>'
-            '<div class="ptb-dd-nome">' + (_au.get('nome') or '') + '</div>'
-            '<div class="ptb-dd-sub">' + _label_perfil + '</div>'
-            + _loja_row +
-          '</div>'
-        '</div>'
-        '<div class="ptb-dd-sep"></div>'
-        '<a href="?page=perfil" target="_self" class="ptb-dd-btn">✏️  Editar perfil</a>'
-        '<a href="?page=senha"  target="_self" class="ptb-dd-btn">🔑  Trocar senha</a>'
-        '<div class="ptb-dd-sep"></div>'
-        '<a href="?page=sair"   target="_self" class="ptb-dd-btn danger">🚪  Sair</a>'
-      '</div>'
-    '</div>'
-)
 
 st.markdown(
     '<div class="pepper-topbar">'
-    + _html_logo + _html_nav + _html_user
+    + '<div class="ptb-logo">'
+        '<span style="font-size:1.4rem;flex-shrink:0;">🌶️</span>'
+        '<div><b>Pepper</b><small>' + _rede_nome + '</small></div>'
+    '</div>'
+    + '<div class="ptb-user-wrap">'
+        '<button class="ptb-user-btn">'
+          '<div class="ptb-av">' + _initials + '</div>'
+          + _nome_first + ' ▾'
+        '</button>'
+        '<div class="ptb-dd">'
+          '<div class="ptb-dd-head">'
+            '<div class="ptb-dd-av">' + _initials + '</div>'
+            '<div>'
+              '<div class="ptb-dd-nome">' + (_au.get('nome') or '') + '</div>'
+              '<div class="ptb-dd-sub">' + _label_perfil + '</div>'
+              + _loja_row +
+            '</div>'
+          '</div>'
+          '<div class="ptb-dd-sep"></div>'
+          '<a href="?page=perfil" target="_self" class="ptb-dd-btn">✏️  Editar perfil</a>'
+          '<a href="?page=senha"  target="_self" class="ptb-dd-btn">🔑  Trocar senha</a>'
+          '<div class="ptb-dd-sep"></div>'
+          '<a href="?page=sair"   target="_self" class="ptb-dd-btn danger">🚪  Sair</a>'
+        '</div>'
+    '</div>'
     + '</div>',
     unsafe_allow_html=True,
 )
+
+# ── Navegação com st.radio (nativo Streamlit — não perde sessão) ──────────────
+# Só emojis como rótulos para caber na barra laranja
+_nav_icons = [n.strip().split()[0] for n in _nav]          # ["🌄","📊","📋",...]
+_nav_labels_full = [" ".join(n.strip().split()[1:]) for n in _nav]  # ["Bom Dia",...]
+
+_nav_sel = st.radio(
+    "nav",
+    _nav_icons,
+    horizontal=True,
+    label_visibility="collapsed",
+    key="topbar_nav",
+)
+page = _nav[_nav_icons.index(_nav_sel)] if _nav_sel in _nav_icons else _nav[0]
 
 # ── Paleta e helpers ──────────────────────────────────────────────────────────
 CAT_NAMES  = {
