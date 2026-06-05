@@ -29,6 +29,7 @@ data/email_queue_history.json
 data/email_config.json
 data/pos_venda_log.json
 data/lgpd_optout.json
+data/lgpd_consent.json
 data/users.json
 data/fornecedor_lentes.json
 

@@ -624,8 +624,20 @@ if _cert_b64 and not st.session_state.get("_cert_warn_dismissed"):
         from cryptography.hazmat.primitives.serialization.pkcs12 import load_key_and_certificates as _load_pfx
         from cryptography.hazmat.backends import default_backend as _def_back
         _pfx   = _b64m.b64decode(_cert_b64)
-        _senha = (cfg.get("sefaz_cert_senha") or "").encode()
-        _, _cert_obj, _ = _load_pfx(_pfx, _senha, _def_back())
+        # sefaz_cert_password é o nome correto da chave (não sefaz_cert_senha)
+        _senha = (cfg.get("sefaz_cert_password") or "").encode()
+        # Tenta múltiplos encodings — igual ao SefazClient._pfx_to_pem
+        _cert_obj = None
+        for _pw_try in [_senha, _senha or None]:
+            try:
+                _, _cert_obj, _ = _load_pfx(_pfx, _pw_try, _def_back())
+                if _cert_obj is not None:
+                    break
+            except BaseException:
+                # Captura pyo3_runtime.PanicException (herda de BaseException, não Exception)
+                continue
+        if _cert_obj is None:
+            raise ValueError("Não foi possível abrir o certificado para verificar a validade.")
         _exp = getattr(_cert_obj, "not_valid_after_utc", None)
         if _exp is None:
             from datetime import timezone as _tz
@@ -646,7 +658,8 @@ if _cert_b64 and not st.session_state.get("_cert_warn_dismissed"):
                 if st.button("✅ Estou ciente", key="dismiss_cert_warn"):
                     st.session_state["_cert_warn_dismissed"] = True
                     st.rerun()
-    except Exception:
+    except BaseException:
+        # BaseException garante captura de pyo3_runtime.PanicException (Rust/OpenSSL)
         pass
 
 # ── Auto-load ─────────────────────────────────────────────────────────────────
