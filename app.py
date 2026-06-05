@@ -564,7 +564,8 @@ db  = Database()
 # Executam uma vez por sessão; pushs persistem até admin clicar "Estou ciente"
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── A) Aviso de rotação do token Microvix (apenas após 6 meses do 1º uso) ────
+# ── A) Aviso de rotação anual do token Microvix ───────────────────────────────
+# Próxima troca programada: 01/01/2027 (anual).
 # token_last_rotation e token_configured_at são salvos em loja_config.json
 # (sincronizado no Supabase) para persistir entre sessões no Cloud.
 if cfg.is_configured and not cfg.modo_demo and not st.session_state.get("_token_warn_dismissed"):
@@ -589,14 +590,14 @@ if cfg.is_configured and not cfg.modo_demo and not st.session_state.get("_token_
             except Exception:
                 pass
         else:
-            # Só avisa se já tem 180+ dias desde a última rotação (ou da configuração inicial)
+            # Avisa se já tem 365+ dias desde a última rotação (rotação anual)
             _ref_date_str = _rot or _conf_at
             try:
                 _ref_dt = datetime.strptime(_ref_date_str, "%d/%m/%Y")
-                if (datetime.now() - _ref_dt).days >= 180:
+                if (datetime.now() - _ref_dt).days >= 365:
                     st.warning(
-                        "🔑 **Rotação do token Microvix recomendada.**  \n"
-                        f"Última rotação/configuração: **{_ref_date_str}** — há mais de 6 meses.  \n"
+                        "🔑 **Rotação anual do token Microvix.**  \n"
+                        f"Última rotação: **{_ref_date_str}** — 1 ano completado.  \n"
                         "Acesse o painel **admin do Microvix → Integrações → Chave de API**, "
                         "gere um novo token e atualize em ⚙️ Configurações → Credenciais."
                     )
@@ -5225,6 +5226,22 @@ def _page_recall(df_ret, client_map, selected_camp, ddd):
         key="recall_janela",
     )
 
+    from modules.db import Database as _RDB
+    _rdb = _RDB()
+    _RECALL_STEPS = [
+        {"canal": "WhatsApp", "acao": "1º aviso — 30 dias"},
+        {"canal": "WhatsApp", "acao": "2º aviso — 2 semanas"},
+        {"canal": "Ligação",  "acao": "3º aviso — 1 semana — ligar"},
+        {"canal": "WhatsApp", "acao": "4º aviso — dia da troca"},
+    ]
+    _RECALL_SCRIPTS = [
+        "Oi {nome}! Sua {cat} está chegando no prazo ideal de troca em 30 dias. Que tal passar na Chilli Beans para já escolher o modelo?",
+        "Oi {nome}! Faltam 2 semanas para o prazo da sua {cat}. Posso separar algumas opções para você ver?",
+        "Oi {nome}, é a Chilli Beans! Na semana que vem é o prazo de troca da sua {cat}. Quando você pode aparecer aqui?",
+        "Oi {nome}! Hoje é o dia da sua troca prevista de {cat}! Já está na hora de renovar 😎 Aparece aqui!",
+    ]
+    _RECALL_RESULTADOS = ["sem resposta", "agendou / vai passar", "vendeu 🎉", "não tem interesse", "número errado"]
+
     today = pd.Timestamp(date.today())
     rows_recall = []
 
@@ -5272,18 +5289,37 @@ def _page_recall(df_ret, client_map, selected_camp, ddd):
             _rec_txt = (f"OD {format_grau(_rec['od'])} | OE {format_grau(_rec['oe'])}"
                         f" | vence {_rec['data_receita']}")
 
+        _proxima_str = proxima.strftime("%d/%m/%Y")
+        _rdb.iniciar_ou_atualizar_recall(codigo, cat, _proxima_str)
+        _rc = _rdb.get_recall_estado(codigo, cat)
+        _toques_f  = _rc.get("toques_feitos", 0)
+        _respondeu = _rc.get("respondeu", False)
+        if _respondeu:
+            _toque_col  = "✅ Converteu"
+            _prox_acao  = "—"
+        elif _toques_f >= len(_RECALL_STEPS):
+            _toque_col  = f"✅ {len(_RECALL_STEPS)}/{len(_RECALL_STEPS)} toques"
+            _prox_acao  = "Concluída"
+        else:
+            _toque_col  = f"{_toques_f}/{len(_RECALL_STEPS)} toques"
+            _step       = _RECALL_STEPS[_toques_f]
+            _prox_acao  = f"{_step['acao']} · {_step['canal']}"
+
         rows_recall.append({
             "Urgência":       urgencia,
             "Nome":           nome,
             "Categoria":      CAT_NAMES.get(cat, cat),
             "Fonte":          _fonte_ciclo,
             "Última Compra":  ult_dt.strftime("%d/%m/%Y"),
-            "Próxima Troca":  proxima.strftime("%d/%m/%Y"),
+            "Próxima Troca":  _proxima_str,
             "Dias Restantes": dias_restantes,
+            "Toques":         _toque_col,
+            "Próx. Ação":     _prox_acao,
             "Receita Cadastrada": _rec_txt,
             "📱 WhatsApp":    wa,
             "_ordem":         dias_restantes,
             "_codigo":        codigo,
+            "_categoria":     cat,
         })
 
     if not rows_recall:
@@ -5291,7 +5327,8 @@ def _page_recall(df_ret, client_map, selected_camp, ddd):
         return
 
     rows_recall.sort(key=lambda r: r["_ordem"])
-    _codigos_recall = [r.pop("_codigo") for r in rows_recall]
+    _codigos_recall    = [r.pop("_codigo")    for r in rows_recall]
+    _categorias_recall = [r.pop("_categoria") for r in rows_recall]
     df_recall = pd.DataFrame(rows_recall).drop(columns=["_ordem"])
 
     # KPIs
@@ -5309,6 +5346,9 @@ def _page_recall(df_ret, client_map, selected_camp, ddd):
             "Fonte":               st.column_config.TextColumn("Fonte", width="small",
                                        help="📋 receita = usa vencimento real | 📅 ciclo médio = estimativa"),
             "Dias Restantes":      st.column_config.NumberColumn("Dias", format="%d"),
+            "Toques":              st.column_config.TextColumn("Toques", width="small",
+                                       help="Quantos toques de recall já foram feitos"),
+            "Próx. Ação":          st.column_config.TextColumn("Próxima ação", width="large"),
             "Receita Cadastrada":  st.column_config.TextColumn("Receita"),
             "📱 WhatsApp":         st.column_config.LinkColumn("📱", display_text="📱 Contatar"),
         },
@@ -5363,6 +5403,53 @@ def _page_recall(df_ret, client_map, selected_camp, ddd):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         key="dl_recall",
     )
+
+    # R3 — Registrar toque de recall
+    st.divider()
+    with st.expander("📞 Registrar toque de recall"):
+        st.caption("Marque cada contato feito. O progresso é salvo e aparece na coluna **Toques**.")
+        _rec_toque_nomes = {
+            f"{str(_codigos_recall[i])}|{_categorias_recall[i]}": rows_recall[i]["Nome"]
+            for i in range(len(_codigos_recall))
+        }
+        _rt_sel = st.selectbox(
+            "Cliente",
+            options=list(_rec_toque_nomes.keys()),
+            format_func=lambda k: _rec_toque_nomes.get(k, k),
+            key="recall_toque_sel",
+        )
+        if _rt_sel:
+            _rt_cod, _rt_cat = _rt_sel.split("|", 1)
+            _rt_estado = _rdb.get_recall_estado(_rt_cod, _rt_cat)
+            _rt_feitos  = _rt_estado.get("toques_feitos", 0)
+            _rt_resp    = _rt_estado.get("respondeu", False)
+            _rt_ultimo  = _rt_estado.get("ultimo_toque", "")
+            if _rt_resp:
+                st.info("✅ Este cliente já foi marcado como convertido.")
+            elif _rt_feitos >= len(_RECALL_STEPS):
+                st.info(f"✅ Sequência completa ({len(_RECALL_STEPS)}/{len(_RECALL_STEPS)} toques).")
+            else:
+                _rt_step   = _RECALL_STEPS[_rt_feitos]
+                _rt_nome_1 = rows_recall[list(_rec_toque_nomes.keys()).index(_rt_sel)]["Nome"].split()[0]
+                _rt_cat_lbl = CAT_NAMES.get(_rt_cat, _rt_cat)
+                _rt_script = _RECALL_SCRIPTS[_rt_feitos].format(nome=_rt_nome_1, cat=_rt_cat_lbl.lower())
+                st.markdown(
+                    f"**Próximo toque:** {_rt_feitos + 1}/{len(_RECALL_STEPS)} — "
+                    f"{_rt_step['acao']} · {_rt_step['canal']}"
+                    + (f"\n\n_Último toque: {_rt_ultimo}_" if _rt_ultimo else ""),
+                )
+                st.code(_rt_script, language=None)
+                with st.form("form_toque_recall", clear_on_submit=True):
+                    _rt_resultado = st.selectbox("Resultado", _RECALL_RESULTADOS, key="rt_resultado")
+                    _rt_sub = st.form_submit_button("✅ Registrar toque", type="primary")
+                if _rt_sub:
+                    _rdb.registrar_toque_recall(_rt_cod, _rt_cat, _rt_resultado)
+                    if "vendeu" in _rt_resultado or "agendou" in _rt_resultado:
+                        _rdb.marcar_respondeu_recall(_rt_cod, _rt_cat)
+                        st.success("🎉 Toque registrado e sequência encerrada — cliente converteu!")
+                    else:
+                        st.success(f"✅ Toque registrado: **{_rt_resultado}**")
+                    st.rerun()
 
     with st.expander("ℹ️ Como é calculada a data de Próxima Troca"):
         st.markdown("""
@@ -6107,8 +6194,22 @@ def page_bom_dia():
                 "wa": _wa, "id": f"aniv_{_cod}",
             })
 
-    # 3. Recalls urgentes (≤7 dias para próxima troca prevista)
+    # 3. Recalls urgentes (≤30 dias para próxima troca prevista)
     if _dret is not None and not _dret.empty:
+        from modules.db import Database as _RDB_BD
+        _rdb_bd = _RDB_BD()
+        _RECALL_STEPS_BD = [
+            {"canal": "WhatsApp", "acao": "1º aviso — 30 dias"},
+            {"canal": "WhatsApp", "acao": "2º aviso — 2 semanas"},
+            {"canal": "Ligação",  "acao": "3º aviso — 1 semana — ligar"},
+            {"canal": "WhatsApp", "acao": "4º aviso — dia da troca"},
+        ]
+        _RECALL_SCRIPTS_BD = [
+            "Oi {nome}! Sua {cat} está chegando no prazo ideal de troca em 30 dias. Que tal passar na Chilli Beans para já escolher o modelo?",
+            "Oi {nome}! Faltam 2 semanas para o prazo da sua {cat}. Posso separar algumas opções para você ver?",
+            "Oi {nome}, é a Chilli Beans! Na semana que vem é o prazo de troca da sua {cat}. Quando você pode aparecer aqui?",
+            "Oi {nome}! Hoje é o dia da sua troca prevista de {cat}! Já está na hora de renovar 😎 Aparece aqui!",
+        ]
         _CICLOS = {"LV":730,"OC":548,"ML":730,"LE":365,"LC":30,"AC":180}
         _hoje_ts = pd.Timestamp(_hoje)
         for _, _rrow in _dret.iterrows():
@@ -6124,15 +6225,26 @@ def page_bom_dia():
             _nome = (_info.get("nome") or "").strip() or f"Cliente #{_cod}"
             _fone = _info.get("fone","") or ""
             _cat_lbl = CAT_NAMES.get(_cat, _cat)
-            _msg  = (f"Oi {_nome.split()[0]}! Sua {_cat_lbl.lower()} está chegando no prazo de troca. "
-                     f"Que tal agendar uma visita?")
-            _wa   = make_whatsapp_link(_fone, _msg, _ddd) if _fone else ""
+            # Progresso da cadência de recall
+            _rc_st   = _rdb_bd.get_recall_estado(_cod, _cat)
+            _rc_f    = _rc_st.get("toques_feitos", 0)
+            _rc_resp = _rc_st.get("respondeu", False)
+            if _rc_resp:
+                _toque_info = "✅ converteu"
+                _msg_wa = ""
+            else:
+                _step_idx = min(_rc_f, len(_RECALL_STEPS_BD) - 1)
+                _step_bd  = _RECALL_STEPS_BD[_step_idx]
+                _toque_info = f"{_rc_f + 1}/{len(_RECALL_STEPS_BD)} · {_step_bd['canal']}"
+                _nome1 = _nome.split()[0]
+                _msg_wa = _RECALL_SCRIPTS_BD[_step_idx].format(nome=_nome1, cat=_cat_lbl.lower())
+            _wa   = make_whatsapp_link(_fone, _msg_wa, _ddd) if (_fone and _msg_wa) else ""
             _pri  = 0 if _dr <= 7 else (1 if _dr <= 14 else 2)
             _grp  = "🔴 URGENTE" if _dr <= 7 else ("🟡 HOJE" if _dr <= 14 else "🟢 ESTA SEMANA")
             _acoes.append({
                 "prioridade": _pri, "grupo": _grp,
                 "tipo": "🔮", "nome": _nome,
-                "subtitulo": f"Troca prevista em {_dr} dia(s) — {_cat_lbl}",
+                "subtitulo": f"Troca prevista em {_dr} dia(s) — {_cat_lbl} · {_toque_info}",
                 "wa": _wa, "id": f"recall_{_cod}_{_cat}",
             })
 

@@ -51,6 +51,7 @@ FILES = [
     "stores.json",
     "redes.json",
     "remember.json",
+    "loja_config.json",
     "lgpd_consent.json",
     "lgpd_optout.json",
 ]
