@@ -857,6 +857,10 @@ _qp_nav  = st.query_params.get("nav",  "")
 if _qp_page == "sair":
     st.query_params.clear()
     st.session_state["auth_user"] = None
+    # Desativa auto-login para que o logout seja efetivo
+    _rl_sair = get_remembered_login()
+    if _rl_sair:
+        save_remembered_login(_rl_sair, auto_login=False)
     st.rerun()
 elif _qp_page == "perfil":
     st.query_params.clear()
