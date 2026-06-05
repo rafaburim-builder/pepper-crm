@@ -294,28 +294,44 @@ if st.session_state["auth_user"] is None:
             '</div>',
             unsafe_allow_html=True,
         )
-        st.markdown("Digite o e-mail cadastrado na sua conta:")
-        _forgot_email = st.text_input("E-mail", placeholder="seuemail@exemplo.com", key="forgot_email")
+        st.markdown("Digite seu **e-mail** ou **login** cadastrado:")
+        _forgot_input = st.text_input("E-mail ou login", placeholder="seuemail@exemplo.com  ou  seu.login", key="forgot_email")
 
         _fc1, _fc2 = st.columns(2)
         with _fc1:
             if st.button("Enviar link", type="primary", use_container_width=True, key="btn_send_reset"):
-                _email_input = _forgot_email.strip().lower()
-                if not _email_input or "@" not in _email_input:
-                    st.error("Digite um e-mail válido.")
+                _raw = _forgot_input.strip()
+                if not _raw:
+                    st.error("Preencha o campo.")
                 else:
-                    _login_found = _rt_by_email(_email_input)
-                    if not _login_found:
-                        # Não revela se e-mail existe (segurança)
-                        st.success("Se esse e-mail estiver cadastrado, você receberá o link em instantes.")
+                    # Resolve login + e-mail de destino
+                    _login_found  = None
+                    _email_destino = ""
+
+                    if "@" in _raw:
+                        # Busca por e-mail no perfil
+                        _login_found   = _rt_by_email(_raw.lower())
+                        _email_destino = _raw.lower()
                     else:
-                        _tok_new  = _rt_create(_login_found, _email_input)
+                        # Busca direta por login
+                        _u_found = get_user_by_login(_raw)
+                        if _u_found:
+                            _login_found = _u_found["login"]
+                            # Pega e-mail do perfil
+                            from modules.user_profile import get_profile as _gprof
+                            _email_destino = _gprof(_login_found).get("email", "").strip()
+
+                    if not _login_found:
+                        st.success("Se esse cadastro existir, você receberá o link em instantes.")
+                    else:
+                        _tok_new  = _rt_create(_login_found, _email_destino or _raw)
                         _base_url = _rt_base_url()
                         _link     = f"{_base_url}/?reset={_tok_new}"
-                        # Tenta enviar por e-mail
+
                         from modules.email_sender import BrevoClient as _BC
                         _brevo = _BC.from_config()
-                        if _brevo and _brevo.api_key:
+
+                        if _brevo and _brevo.api_key and _email_destino:
                             _body = (
                                 f"Olá!\n\n"
                                 f"Recebemos uma solicitação de recuperação de senha para sua conta no Pepper CRM.\n\n"
@@ -325,19 +341,18 @@ if st.session_state["auth_user"] is None:
                                 f"Pepper CRM — Chilli Beans"
                             )
                             _ok, _err = _brevo.send_email(
-                                to_email=_email_input, to_name=_login_found,
+                                to_email=_email_destino, to_name=_login_found,
                                 subject="Recuperação de senha — Pepper CRM",
                                 body_text=_body,
                             )
                             if _ok:
                                 st.success("✅ Link enviado! Verifique sua caixa de entrada.")
                             else:
-                                # Fallback: mostra o link diretamente
-                                st.warning("Não foi possível enviar o e-mail. Copie o link abaixo:")
+                                st.warning(f"Falha no envio ({_err}). Copie o link:")
                                 st.code(_link)
                         else:
-                            # E-mail não configurado: exibe o link
-                            st.info("E-mail não configurado. Copie o link abaixo para redefinir a senha:")
+                            # Sem e-mail no perfil ou Brevo não configurado: exibe link
+                            st.info("Link de recuperação (copie e acesse):")
                             st.code(_link)
                             st.caption("Válido por 2 horas · uso único")
         with _fc2:
