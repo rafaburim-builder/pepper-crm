@@ -11,6 +11,9 @@ try:
 except Exception:
     pass
 
+# variável inicializada aqui; flush real acontece após import do streamlit (linha ~30)
+_sq_pending = 0
+
 import base64
 import json
 import math
@@ -24,6 +27,17 @@ import plotly.graph_objects as go
 import streamlit as st
 
 print("[Pepper] streamlit importado OK", flush=True)
+
+# ── Sync queue: flush silencioso de escritas pendentes ao Supabase ────────────
+# Custo: ~0ms se fila vazia (lê um arquivo pequeno). Rate-limit: 1× / 30s.
+# Se Supabase ainda estiver down, nenhum erro é exibido; tenta novamente no
+# próximo render.
+try:
+    from modules.sync_queue import maybe_flush as _sq_flush, queue_size as _sq_size
+    _sq_flush(st.session_state)
+    _sq_pending = _sq_size()
+except Exception:
+    _sq_pending = 0
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)

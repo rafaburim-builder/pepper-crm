@@ -87,6 +87,9 @@ def save_json(filename: str, data) -> None:
     """
     Grava um arquivo JSON.
     Em modo cloud: escreve no Supabase Storage.
+      Se o Supabase estiver inacessível, enfileira para sync automático posterior
+      (via modules.sync_queue). O dado já está salvo localmente em /tmp antes
+      desta chamada, então nunca há perda de dados dentro da sessão.
     Em modo local: escreve no filesystem.
     """
     content = json.dumps(data, ensure_ascii=False, indent=2)
@@ -97,13 +100,23 @@ def save_json(filename: str, data) -> None:
             f.write(content)
         return
     # Cloud: Supabase Storage
-    sb, bucket = _get_supabase()
-    obj_path   = _loja_prefix() + filename
-    sb.storage.from_(bucket).upload(
-        obj_path,
-        content.encode("utf-8"),
-        {"upsert": "true", "content-type": "application/json"},
-    )
+    try:
+        sb, bucket = _get_supabase()
+        obj_path   = _loja_prefix() + filename
+        sb.storage.from_(bucket).upload(
+            obj_path,
+            content.encode("utf-8"),
+            {"upsert": "true", "content-type": "application/json"},
+        )
+    except Exception:
+        # Supabase inacessível: enfileira para retry silencioso.
+        # O dado já está em /tmp/pepper-data/ (gravado pelo módulo chamador),
+        # portanto não há perda para a sessão atual.
+        try:
+            from modules.sync_queue import enqueue as _enqueue
+            _enqueue(filename, data)
+        except Exception:
+            pass  # último recurso: silencioso
 
 
 def sync_to_cloud(filename: str) -> bool:
