@@ -772,7 +772,12 @@ st.markdown("""
 .ptb-nav-item:hover::after { opacity: 1; }
 
 /* Botão do usuário */
-.ptb-user-wrap { position: relative; flex-shrink: 0; margin-left: auto; padding: 0 12px; height: 100%; display: flex; align-items: center; border-left: 1px solid rgba(255,255,255,.2); }
+.ptb-user-wrap {
+  position: relative; flex-shrink: 0; margin-left: auto;
+  padding: 0 12px; height: 100%;
+  display: flex; align-items: center;
+  border-left: 1px solid rgba(255,255,255,.2);
+}
 .ptb-user-btn {
   display: flex; align-items: center; gap: 8px;
   background: rgba(0,0,0,.14); border: none; border-radius: 8px;
@@ -782,13 +787,14 @@ st.markdown("""
   transition: background .15s;
 }
 .ptb-user-btn:hover  { background: rgba(0,0,0,.22); }
+.ptb-user-btn:focus  { outline: none; background: rgba(0,0,0,.25); }
 .ptb-av {
   width: 26px; height: 26px; border-radius: 50%;
   background: rgba(255,255,255,.3);
   display: flex; align-items: center; justify-content: center;
   font-size: .68rem; font-weight: 800; color: white; flex-shrink: 0;
 }
-/* Dropdown */
+/* Dropdown — abre com :focus-within (puro CSS, sem JavaScript) */
 .ptb-dd {
   display: none; position: absolute;
   top: calc(100% + 4px); right: 0;
@@ -798,7 +804,7 @@ st.markdown("""
   border: 1px solid #EBE5DE;
   z-index: 10001; overflow: hidden;
 }
-.ptb-dd.open { display: block; }
+.ptb-user-wrap:focus-within .ptb-dd { display: block; }
 .ptb-dd-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; background: #FDF8F5; }
 .ptb-dd-av   { width: 42px; height: 42px; border-radius: 50%; background: #E84300; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .95rem; font-weight: 800; color: white; }
 .ptb-dd-nome { font-size: .87rem; font-weight: 700; color: #1C1816; white-space: nowrap; }
@@ -863,27 +869,17 @@ for _ni, _n in enumerate(_nav):
     )
 _html_nav += '</div>'
 
-# Dropdown do usuário: JavaScript inline (sem funções externas — script blocks
-# são removidos pelo Streamlit). Overlay cobre a tela para fechar ao clicar fora.
-_toggle_js = (
-    "var d=document.getElementById('ptbDD');"
-    "var c=document.getElementById('ptbCatcher');"
-    "var o=d.classList.toggle('open');"
-    "c.style.display=o?'block':'none';"
-)
-_close_js = (
-    "document.getElementById('ptbDD').classList.remove('open');"
-    "this.style.display='none';"
-)
-
+# Dropdown do usuário — toggle via CSS :focus-within (sem JavaScript)
+# Clicar no botão dá focus → dropdown aparece
+# Clicar fora → focus some → dropdown fecha
 _loja_row = ('<div class="ptb-dd-loja">🏪 ' + _loja_dd + '</div>') if _loja_dd else ''
 _html_user = (
     '<div class="ptb-user-wrap">'
-      '<button class="ptb-user-btn" onclick="' + _toggle_js + '">'
+      '<button class="ptb-user-btn">'
         '<div class="ptb-av">' + _initials + '</div>'
         + _nome_first + ' ▾'
       '</button>'
-      '<div class="ptb-dd" id="ptbDD">'
+      '<div class="ptb-dd">'
         '<div class="ptb-dd-head">'
           '<div class="ptb-dd-av">' + _initials + '</div>'
           '<div>'
@@ -897,11 +893,6 @@ _html_user = (
         '<a href="?page=senha"  target="_self" class="ptb-dd-btn">🔑  Trocar senha</a>'
         '<div class="ptb-dd-sep"></div>'
         '<a href="?page=sair"   target="_self" class="ptb-dd-btn danger">🚪  Sair</a>'
-      '</div>'
-      # Overlay transparente: fecha o dropdown ao clicar fora
-      '<div id="ptbCatcher"'
-        ' style="display:none;position:fixed;inset:0;z-index:10000;"'
-        ' onclick="' + _close_js + '">'
       '</div>'
     '</div>'
 )
