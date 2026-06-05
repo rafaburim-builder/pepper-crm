@@ -55,8 +55,8 @@ def init_cloud_data_dir() -> bool:
         "familias.json", "loja_config.json", "qualidade_alertas.json",
         "fornecedor_lentes.json", "prescricoes.json", "funil.json",
         "email_queue.json", "email_queue_history.json",
-        "pos_venda_log.json", "lgpd_optout.json", "users.json",
-        "profiles.json", "stores.json", "redes.json", "remember.json",
+        "pos_venda_log.json", "lgpd_optout.json", "lgpd_consent.json",
+        "users.json", "profiles.json", "stores.json", "redes.json", "remember.json",
     ]
 
     downloaded = 0

@@ -4840,6 +4840,7 @@ def _page_retorno_contato(df_ret, thresholds, client_map, selected_camp, ddd, fi
                     _b = "hoje" if days_since_cnt == 0 else f"há {days_since_cnt}d"
                     nome_display = f"{nome}  ⚠️ Contatado {_b}"
 
+                from modules.lgpd import lgpd_status as _lgpd_status
                 codigos.append(codigo); nomes_raw.append(nome)
                 rows_out.append({
                     "Nome":          nome_display,
@@ -4849,6 +4850,7 @@ def _page_retorno_contato(df_ret, thresholds, client_map, selected_camp, ddd, fi
                     "Dias":          dias,
                     "Fone":          fone or "—",
                     "✅ Contatado":  was_contacted,
+                    "🔒 LGPD":       _lgpd_status(codigo),
                 })
 
             df_show = pd.DataFrame(rows_out)
@@ -4871,11 +4873,16 @@ def _page_retorno_contato(df_ret, thresholds, client_map, selected_camp, ddd, fi
                 height=min(500, 80 + len(df_show) * 35),
                 key=f"editor{key_sfx}",
                 column_config={
-                    "📱 WhatsApp": st.column_config.LinkColumn("📱 WhatsApp", display_text="📱 Enviar"),
-                    "Dias":        st.column_config.NumberColumn("Dias s/ comprar", format="%d"),
+                    "📱 WhatsApp":  st.column_config.LinkColumn("📱 WhatsApp", display_text="📱 Enviar"),
+                    "Dias":         st.column_config.NumberColumn("Dias s/ comprar", format="%d"),
                     "✅ Contatado": st.column_config.CheckboxColumn("✅ Contatado"),
+                    "🔒 LGPD":      st.column_config.TextColumn(
+                        "🔒 LGPD",
+                        width="small",
+                        help="✅ Consentiu = autorizado para automação | ⬜ Pendente = coletar consentimento | 🚫 Opt-out = não contatar",
+                    ),
                 },
-                disabled=["Nome", "📱 WhatsApp", "Categoria", "Última Compra", "Dias", "Fone"],
+                disabled=["Nome", "📱 WhatsApp", "Categoria", "Última Compra", "Dias", "Fone", "🔒 LGPD"],
             )
 
             # LOG-1: indica quantos checkboxes estão marcados mas ainda não salvos
@@ -5834,44 +5841,150 @@ def page_marketing():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
 
-    # ── Aba LGPD Opt-out ──────────────────────────────────────────────────────
+    # ── Aba LGPD ──────────────────────────────────────────────────────────────
     with tab_lgpd:
-        from modules.lgpd import load_optout, set_optout, remove_optout, optout_count
-        st.markdown("#### 🔒 LGPD — Opt-out de Marketing")
-        st.caption(
-            "Clientes que solicitaram sair das comunicações de marketing. "
-            "**Prazo legal: 24h** para remover de todas as listas após solicitação. "
-            "Clientes em opt-out **não** recebem e-mails da régua de pós-venda nem campanhas."
+        from modules.lgpd import (
+            load_optout, set_optout, remove_optout, optout_count,
+            load_consent, set_consent, revoke_consent, consent_count,
+            CANAIS_CONSENT,
         )
 
-        _optouts = load_optout()
-        _lgpd_c1, _lgpd_c2 = st.columns([2, 3])
-        with _lgpd_c1:
-            st.metric("Clientes em opt-out", optout_count())
-        with _lgpd_c2:
-            if _optouts:
-                st.warning(
-                    f"⚠️ {optout_count()} cliente(s) em opt-out. "
-                    "Remova das campanhas antes do próximo disparo."
-                )
+        st.markdown("#### 🔒 LGPD — Consentimento e Opt-out por Cliente")
+        st.caption(
+            "Gerencie quem **autorizou** receber comunicações (opt-in) "
+            "e quem **pediu para sair** (opt-out). "
+            "O consentimento positivo é a peça que destrava a automação via API oficial do WhatsApp."
+        )
 
-        # Registrar novo opt-out
-        with st.expander("➕ Registrar opt-out de cliente"):
-            _oo_cod  = st.text_input("Código do cliente", key="lgpd_cod")
-            _oo_mot  = st.text_input("Motivo (opcional)", key="lgpd_motivo")
-            _cmap_oo = st.session_state.client_map or {}
-            _oo_nome = _cmap_oo.get(_oo_cod, {}).get("nome", "") if _oo_cod else ""
-            if _oo_nome:
-                st.caption(f"Cliente encontrado: **{_oo_nome}**")
-            if st.button("🔒 Registrar opt-out", key="lgpd_add", type="primary"):
-                if _oo_cod:
-                    set_optout(_oo_cod, _oo_nome, _oo_mot)
-                    st.success(f"✅ {_oo_nome or _oo_cod} registrado em opt-out. Remova das listas em até 24h.")
+        # ── Painel de métricas ────────────────────────────────────────────────
+        _mc1, _mc2, _mc3 = st.columns(3)
+        _n_consent = consent_count()
+        _n_optout  = optout_count()
+        _cmap_lgpd = st.session_state.client_map or {}
+        _total_cli = len(_cmap_lgpd)
+        _n_pend    = max(0, _total_cli - _n_consent - _n_optout)
+        _mc1.metric("✅ Com consentimento", _n_consent,
+                    help="Clientes que autorizaram expressamente receber comunicações")
+        _mc2.metric("⬜ Pendentes", _n_pend,
+                    help="Clientes sem registro — coletar consentimento na próxima visita")
+        _mc3.metric("🚫 Opt-out", _n_optout,
+                    help="Clientes que pediram para sair — NÃO contatar")
+
+        if _n_optout:
+            st.warning(
+                f"⚠️ {_n_optout} cliente(s) em opt-out. "
+                "Prazo legal: **24h** para remover de todas as listas após solicitação."
+            )
+
+        st.divider()
+
+        # ── Seção 1: Registrar consentimento positivo ─────────────────────────
+        st.markdown("##### ✅ Registrar Consentimento (Opt-in)")
+        st.caption(
+            "Registre aqui quando um cliente **autorizar expressamente** receber "
+            "comunicações de marketing pelo WhatsApp. "
+            "Recomendado: coletar no tablet no ato da venda."
+        )
+
+        with st.expander("➕ Registrar consentimento de cliente", expanded=False):
+            _cn_cod  = st.text_input("Código do cliente *", key="lgpd_cn_cod",
+                                     placeholder="Ex: 12345")
+            _cn_nome = _cmap_lgpd.get(_cn_cod, {}).get("nome", "") if _cn_cod else ""
+            if _cn_cod and _cn_nome:
+                st.caption(f"👤 Cliente encontrado: **{_cn_nome}**")
+            elif _cn_cod:
+                st.caption("⚠️ Código não encontrado no cadastro.")
+
+            _canal_opts = list(CANAIS_CONSENT.values())
+            _canal_keys = list(CANAIS_CONSENT.keys())
+            _canal_sel  = st.selectbox(
+                "Como o consentimento foi coletado? *",
+                _canal_opts,
+                key="lgpd_canal",
+                help="Registre o canal real de coleta — isso fica no histórico para fins de auditoria LGPD.",
+            )
+            _canal_key  = _canal_keys[_canal_opts.index(_canal_sel)]
+
+            _au_lgpd    = st.session_state.get("auth_user", {})
+            _operador   = _au_lgpd.get("login", "") if _au_lgpd else ""
+
+            if st.button("✅ Registrar consentimento", key="lgpd_cn_add", type="primary"):
+                if _cn_cod:
+                    set_consent(_cn_cod, _cn_nome, _canal_key, _operador)
+                    _display = _cn_nome or _cn_cod
+                    st.success(
+                        f"✅ Consentimento de **{_display}** registrado via "
+                        f"*{_canal_sel}* em {__import__('datetime').date.today().strftime('%d/%m/%Y')}."
+                    )
                     st.rerun()
                 else:
                     st.warning("Informe o código do cliente.")
 
-        # Lista atual de opt-outs
+        # Lista de consentimentos registrados
+        _consents = load_consent()
+        if _consents:
+            _cn_rows = [
+                {
+                    "Código":   k,
+                    "Nome":     v.get("nome", ""),
+                    "Canal":    CANAIS_CONSENT.get(v.get("canal", ""), v.get("canal", "")),
+                    "Data":     v.get("data", ""),
+                    "Operador": v.get("operador", ""),
+                }
+                for k, v in _consents.items()
+            ]
+            _df_cn = pd.DataFrame(_cn_rows)
+            st.dataframe(
+                _df_cn, hide_index=True, width="stretch",
+                height=min(400, 60 + len(_df_cn) * 35),
+                column_config={
+                    "Código":   st.column_config.TextColumn("Código",   width="small"),
+                    "Nome":     st.column_config.TextColumn("Nome"),
+                    "Canal":    st.column_config.TextColumn("Canal de coleta"),
+                    "Data":     st.column_config.TextColumn("Data",     width="small"),
+                    "Operador": st.column_config.TextColumn("Registrado por", width="small"),
+                },
+            )
+            with st.expander("🗑️ Revogar consentimento de um cliente"):
+                _cn_rv = st.text_input("Código do cliente para revogar consentimento",
+                                       key="lgpd_cn_revoke")
+                if st.button("Confirmar revogação", key="lgpd_cn_revoke_btn"):
+                    if str(_cn_rv) in _consents:
+                        revoke_consent(_cn_rv)
+                        st.success(f"✅ Consentimento de {_cn_rv} revogado.")
+                        st.rerun()
+                    else:
+                        st.warning("Código não encontrado na lista de consentimentos.")
+        else:
+            st.info("Nenhum consentimento registrado ainda. Comece a coletar no próximo atendimento!")
+
+        st.divider()
+
+        # ── Seção 2: Opt-out ──────────────────────────────────────────────────
+        st.markdown("##### 🚫 Opt-out (clientes que pediram para sair)")
+        st.caption(
+            "Registre quando um cliente **solicitar** não receber mais comunicações. "
+            "Prazo legal: **24h** para remover de todas as listas."
+        )
+
+        with st.expander("➕ Registrar opt-out de cliente"):
+            _oo_cod  = st.text_input("Código do cliente", key="lgpd_cod")
+            _oo_mot  = st.text_input("Motivo (opcional)", key="lgpd_motivo")
+            _oo_nome = _cmap_lgpd.get(_oo_cod, {}).get("nome", "") if _oo_cod else ""
+            if _oo_nome:
+                st.caption(f"Cliente encontrado: **{_oo_nome}**")
+            if st.button("🚫 Registrar opt-out", key="lgpd_add", type="primary"):
+                if _oo_cod:
+                    set_optout(_oo_cod, _oo_nome, _oo_mot)
+                    st.success(
+                        f"✅ **{_oo_nome or _oo_cod}** registrado em opt-out. "
+                        "Remova das listas em até 24h."
+                    )
+                    st.rerun()
+                else:
+                    st.warning("Informe o código do cliente.")
+
+        _optouts = load_optout()
         if _optouts:
             _oo_rows = [
                 {"Código": k, "Nome": v.get("nome",""), "Data": v.get("data",""),
@@ -5879,26 +5992,28 @@ def page_marketing():
                 for k, v in _optouts.items()
             ]
             _df_oo = pd.DataFrame(_oo_rows)
-            _edited_oo = st.data_editor(
+            st.dataframe(
                 _df_oo, hide_index=True, width="stretch",
-                num_rows="fixed",
+                height=min(400, 60 + len(_df_oo) * 35),
                 column_config={
-                    "Código": st.column_config.TextColumn("Código", disabled=True),
-                    "Nome":   st.column_config.TextColumn("Nome",   disabled=True),
-                    "Data":   st.column_config.TextColumn("Data",   disabled=True),
-                    "Motivo": st.column_config.TextColumn("Motivo", disabled=True),
+                    "Código": st.column_config.TextColumn("Código", width="small"),
+                    "Nome":   st.column_config.TextColumn("Nome"),
+                    "Data":   st.column_config.TextColumn("Data",   width="small"),
+                    "Motivo": st.column_config.TextColumn("Motivo"),
                 },
             )
-            if st.button("🔓 Remover opt-out selecionado (re-consentiu)", key="lgpd_remove"):
-                st.info("Selecione o cliente abaixo e confirme.")
-            _oo_rm = st.text_input("Código para remover opt-out", key="lgpd_rm_cod")
-            if st.button("Confirmar remoção", key="lgpd_rm_confirm"):
-                if _oo_rm in _optouts:
-                    remove_optout(_oo_rm)
-                    st.success(f"✅ Opt-out de {_oo_rm} removido.")
-                    st.rerun()
+            with st.expander("🔓 Remover opt-out (cliente re-consentiu)"):
+                _oo_rm = st.text_input("Código do cliente para remover opt-out",
+                                       key="lgpd_rm_cod")
+                if st.button("Confirmar remoção", key="lgpd_rm_confirm"):
+                    if str(_oo_rm) in _optouts:
+                        remove_optout(_oo_rm)
+                        st.success(f"✅ Opt-out de {_oo_rm} removido.")
+                        st.rerun()
+                    else:
+                        st.warning("Código não encontrado na lista de opt-outs.")
         else:
-            st.success("Nenhum cliente em opt-out no momento.")
+            st.success("✅ Nenhum cliente em opt-out no momento.")
 
 
 def page_bom_dia():
