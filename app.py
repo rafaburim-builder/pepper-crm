@@ -782,8 +782,21 @@ div[data-testid="stRadio"] label[aria-checked="true"] {
   color: white !important;
   font-weight: 700 !important;
 }
-/* Esconde o círculo padrão do radio */
-div[data-testid="stRadio"] input[type="radio"] { display: none !important; }
+/* Esconde TUDO relacionado ao indicador circular do radio */
+div[data-testid="stRadio"] input[type="radio"]      { display: none !important; }
+div[data-testid="stRadio"] label > div:first-child  { display: none !important; }
+div[data-testid="stRadio"] [role="radio"]            { display: none !important; }
+div[data-testid="stRadio"] [data-baseweb="radio"]
+  > div:first-child                                  { display: none !important; }
+div[data-testid="stRadio"] label {
+  padding-left: 6px !important;   /* remove o espaço que sobrava do círculo */
+}
+
+/* Esconde a barra/spinner de "pensando" durante reruns */
+[data-testid="stStatusWidget"]      { display: none !important; }
+[data-testid="stToolbar"]           { display: none !important; }
+div.stSpinner                       { display: none !important; }
+div[data-testid="stSpinner"]        { display: none !important; }
 
 /* Botão do usuário */
 .ptb-user-wrap {
